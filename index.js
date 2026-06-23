@@ -107,6 +107,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1153,10 +1154,12 @@ function renderStatus() {
 
 async function register() {
   const name = document.getElementById('inp-name').value.trim();
-  const phone = document.getElementById('inp-phone').value.trim();
+  const rawPhone = document.getElementById('inp-phone').value.trim();
+  const cleanPhone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
   if (!name) { showToast('請輸入客人姓名'); return; }
-  const cleanPhone = phone.replace(/[\s\-]/g, '');
-  if (!cleanPhone || !/^09\d{8}$/.test(cleanPhone)) { showToast('請輸入有效手機號碼（格式：09xxxxxxxx）'); return; }
+  if (cleanPhone.length !== 10 || cleanPhone.slice(0,2) !== '09') {
+    showToast('請輸入有效手機號碼（格式：09xxxxxxxx）'); return;
+  }
   try {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
@@ -1181,7 +1184,6 @@ async function register() {
     setTimeout(() => document.getElementById('success-banner').classList.remove('show'), 5000);
   } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
-
 // Enter 鍵送出
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter') register();
