@@ -7,9 +7,69 @@ app.use(cors());
 app.use(express.json());
 
 const LINE_TOKEN = process.env.LINE_TOKEN;
-
 const phoneToUserId = {};
 const userIdMap = {};
+
+let sharedState = {
+  A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 },
+  B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 }
+};
+let sharedCfg = {
+  systemName: '排隊系統',
+  services: {
+    A: { name: '心願瓶DIY', prefix: 'A', minutes: 15 },
+    B: { name: '塔羅牌占卜', prefix: 'T', minutes: 20 }
+  }
+};
+
+app.get('/api/state', (req, res) => res.json({ state: sharedState, cfg: sharedCfg }));
+
+app.post('/api/state', (req, res) => {
+  if (req.body.state) sharedState = req.body.state;
+  if (req.body.cfg) sharedCfg = req.body.cfg;
+  res.json({ success: true });
+});
+
+app.post('/api/issue', (req, res) => {
+  const { svc, name, userId, phone } = req.body;
+  if (!svc || !name) return res.status(400).json({ error: '缺少參數' });
+  sharedState[svc].lastIssued++;
+  const num = sharedState[svc].lastIssued;
+  const uid = userId || phone || '—';
+  sharedState[svc].queue.push({ num, name, userId: uid });
+  res.json({ success: true, num, called: { num, name, userId: uid } });
+});
+
+app.post('/api/call-next', (req, res) => {
+  const { svc } = req.body;
+  const q = sharedState[svc].queue;
+  if (q.length === 0) return res.status(400).json({ error: '無人候位' });
+  const entry = q.shift();
+  sharedState[svc].current = entry.num;
+  sharedState[svc].servedToday++;
+  sharedState[svc].history.unshift(entry.num);
+  if (sharedState[svc].history.length > 10) sharedState[svc].history.pop();
+  res.json({ success: true, called: entry });
+});
+
+app.post('/api/cancel', (req, res) => {
+  const { svc, num } = req.body;
+  sharedState[svc].queue = sharedState[svc].queue.filter(q => q.num !== num);
+  res.json({ success: true });
+});
+
+app.post('/api/reset', (req, res) => {
+  const { svc } = req.body;
+  if (svc) {
+    sharedState[svc] = { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 };
+  } else {
+    sharedState = {
+      A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 },
+      B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 }
+    };
+  }
+  res.json({ success: true });
+});
 
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
@@ -23,13 +83,13 @@ app.post('/webhook', async (req, res) => {
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
           messages: [{ type: 'text', text: `✅ 手機號碼 ${text} 綁定成功！結帳後工作人員會幫您登記候位，輪到您時我們會主動通知您。` }]
-        }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } });
+        }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
       }
     }
   }
 });
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', (req, res) => {
   const { userId, name } = req.body;
   if (!userId) return res.status(400).json({ error: '缺少 userId' });
   userIdMap[userId] = { userId, name };
@@ -40,9 +100,7 @@ app.post('/api/line-notify', async (req, res) => {
   const { userId, phone, name, message } = req.body;
   if (!message) return res.status(400).json({ error: '缺少 message' });
   const targetId = userId || phoneToUserId[phone];
-  if (!targetId) {
-    return res.status(404).json({ error: '找不到對應的 LINE 帳號' });
-  }
+  if (!targetId) return res.status(404).json({ error: '找不到對應的 LINE 帳號' });
   try {
     await axios.post('https://api.line.me/v2/bot/message/push', {
       to: targetId,
@@ -497,20 +555,39 @@ let currentStaffSvc = 'A';
 // ── 持久化 ────────────────────────────────────────
 function loadAll() {
   try {
-    const c = localStorage.getItem('qs2_cfg'); if (c) cfg = JSON.parse(c);
-    const s = localStorage.getItem('qs2_state'); if (s) state = JSON.parse(s);
     const t = localStorage.getItem('qs2_ticket'); if (t) myTicket = JSON.parse(t);
     const l = localStorage.getItem('qs2_log'); if (l) notifyLog = JSON.parse(l);
+    const p = localStorage.getItem('qs2_pwd'); // keep password local
   } catch(e) {}
 }
 function saveAll() {
   try {
-    localStorage.setItem('qs2_cfg', JSON.stringify(cfg));
-    localStorage.setItem('qs2_state', JSON.stringify(state));
     if (myTicket) localStorage.setItem('qs2_ticket', JSON.stringify(myTicket));
     else localStorage.removeItem('qs2_ticket');
     localStorage.setItem('qs2_log', JSON.stringify(notifyLog.slice(0,30)));
   } catch(e) {}
+}
+async function syncFromServer() {
+  try {
+    const res = await fetch(BACKEND_URL + '/api/state');
+    const data = await res.json();
+    if (data.state) state = data.state;
+    if (data.cfg) {
+      cfg = data.cfg;
+      loadSettingsUI();
+      applyConfig();
+    }
+    render();
+  } catch(e) { console.warn('同步失敗:', e.message); }
+}
+async function pushToServer() {
+  try {
+    await fetch(BACKEND_URL + '/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state, cfg })
+    });
+  } catch(e) { console.warn('推送失敗:', e.message); }
 }
 
 // ── 工具 ──────────────────────────────────────────
@@ -580,18 +657,25 @@ function staffTakeNumber() {
   document.getElementById('staff-inp-name').value = '';
   document.getElementById('staff-inp-phone').value = '';
 }
-function _issueTicket(svc, name, phone) {
-  state[svc].lastIssued++;
-  const num = state[svc].lastIssued;
-  const uid = lineUserId || phone;
-  state[svc].queue.push({ num, name, userId: uid });
-  myTicket = { svc, num, name, userId: uid, time: nowTime() };
-  addLog(svc, \`\${name} 取得 \${fmt(svc, num)} 號\`);
-  if (lineUserId) {
-    sendLineNotify(lineUserId, name, \`您好 \${name}！您已成功取得 \${fmt(svc, num)} 號（\${cfg.services[svc].name}），輪到您前會再通知您，感謝耐心等候。\`);
-  }
-  saveAll(); render();
-  showToast('取號成功：' + fmt(svc, num));
+async function _issueTicket(svc, name, phone) {
+  try {
+    const uid = lineUserId || phone || '—';
+    const res = await fetch(BACKEND_URL + '/api/issue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc, name, userId: lineUserId, phone: lineUserId ? null : phone })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast('取號失敗，請再試一次'); return; }
+    myTicket = { svc, num: data.num, name, userId: uid, time: nowTime() };
+    addLog(svc, \`\${name} 取得 \${fmt(svc, data.num)} 號\`);
+    if (lineUserId) {
+      sendLineNotify(lineUserId, name, \`您好 \${name}！您已成功取得 \${fmt(svc, data.num)} 號（\${cfg.services[svc].name}），輪到您前會再通知您，感謝耐心等候。\`);
+    }
+    saveAll();
+    await syncFromServer();
+    showToast('取號成功：' + fmt(svc, data.num));
+  } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
 
 function leaveQueue() {
@@ -605,23 +689,28 @@ function leaveQueue() {
 }
 
 // ── 叫號 ──────────────────────────────────────────
-function callNext() {
+async function callNext() {
   const svc = currentStaffSvc;
-  const q = state[svc].queue;
-  if (q.length === 0) { showToast('目前無人候位'); return; }
-  const entry = q.shift();
-  state[svc].current = entry.num;
-  state[svc].servedToday++;
-  state[svc].history.unshift(entry.num);
-  if (state[svc].history.length > 10) state[svc].history.pop();
-  addLog(svc, \`叫號 \${fmt(svc, entry.num)}（\${entry.name}）\`);
-  sendLineNotify(entry.userId, entry.name, \`📢 \${entry.name} 您好！現在叫到 \${fmt(svc, entry.num)} 號，請立即回到現場，謝謝！\`);
-  if (q.length > 0) {
-    addLog(svc, \`提醒 \${q[0].name}（\${fmt(svc, q[0].num)}）準備\`);
-    sendLineNotify(q[0].userId, q[0].name, \`⏰ \${q[0].name} 您好！您是下一位（\${fmt(svc, q[0].num)} 號），請提前回到現場準備。\`);
-  }
-  saveAll(); render();
-  showToast('已叫號：' + fmt(svc, entry.num));
+  if (state[svc].queue.length === 0) { showToast('目前無人候位'); return; }
+  try {
+    const res = await fetch(BACKEND_URL + '/api/call-next', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast(data.error || '叫號失敗'); return; }
+    const entry = data.called;
+    addLog(svc, \`叫號 \${fmt(svc, entry.num)}（\${entry.name}）\`);
+    sendLineNotify(entry.userId, entry.name, \`📢 \${entry.name} 您好！現在叫到 \${fmt(svc, entry.num)} 號，請立即回到現場，謝謝！\`);
+    await syncFromServer();
+    if (state[svc].queue.length > 0) {
+      const next = state[svc].queue[0];
+      addLog(svc, \`提醒 \${next.name}（\${fmt(svc, next.num)}）準備\`);
+      sendLineNotify(next.userId, next.name, \`⏰ \${next.name} 您好！您是下一位（\${fmt(svc, next.num)} 號），請提前回到現場準備。\`);
+    }
+    showToast('已叫號：' + fmt(svc, entry.num));
+  } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
 function repeatCall() {
   const svc = currentStaffSvc;
@@ -638,32 +727,41 @@ function notifyPerson(svc, num) {
   sendLineNotify(entry.userId, entry.name, \`⏰ \${entry.name} 您好！您的 \${fmt(svc, num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   showToast('已傳送提醒');
 }
-function cancelPerson(svc, num) {
+async function cancelPerson(svc, num) {
   const entry = state[svc].queue.find(q => q.num === num);
   if (!entry || !confirm(\`確定取消 \${fmt(svc, num)} 號（\${entry.name}）？\`)) return;
-  state[svc].queue = state[svc].queue.filter(q => q.num !== num);
-  if (myTicket && myTicket.svc === svc && myTicket.num === num) myTicket = null;
-  addLog(svc, \`取消 \${entry.name}（\${fmt(svc, num)}）候位\`);
-  saveAll(); render();
-  showToast('已取消候位');
+  try {
+    await fetch(BACKEND_URL + '/api/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc, num })
+    });
+    if (myTicket && myTicket.svc === svc && myTicket.num === num) { myTicket = null; saveAll(); }
+    addLog(svc, \`取消 \${entry.name}（\${fmt(svc, num)}）候位\`);
+    await syncFromServer();
+    showToast('已取消候位');
+  } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
 
 // ── 重置 ──────────────────────────────────────────
-function resetSvc() {
+async function resetSvc() {
   const svc = currentStaffSvc;
   if (!confirm(\`確定重置「\${cfg.services[svc].name}」今日所有號碼？\`)) return;
-  state[svc] = { current:0, lastIssued:0, queue:[], history:[], servedToday:0 };
-  if (myTicket && myTicket.svc === svc) myTicket = null;
-  saveAll(); render(); showToast('已重置');
+  await fetch(BACKEND_URL + '/api/reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc })
+  });
+  if (myTicket && myTicket.svc === svc) { myTicket = null; saveAll(); }
+  await syncFromServer(); showToast('已重置');
 }
-function resetAll() {
+async function resetAll() {
   if (!confirm('確定重置所有服務？')) return;
-  state = {
-    A: { current:0, lastIssued:0, queue:[], history:[], servedToday:0 },
-    B: { current:0, lastIssued:0, queue:[], history:[], servedToday:0 }
-  };
+  await fetch(BACKEND_URL + '/api/reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
   myTicket = null; notifyLog = [];
-  saveAll(); render(); showToast('已重置所有服務');
+  saveAll(); await syncFromServer(); showToast('已重置所有服務');
 }
 
 // ── 設定 ──────────────────────────────────────────
@@ -687,6 +785,7 @@ function saveSettings() {
   const newPwd = document.getElementById('set-pwd').value.trim();
   if (newPwd) { localStorage.setItem('qs2_pwd', newPwd); document.getElementById('set-pwd').value = ''; }
   saveAll(); applyConfig(); render();
+  pushToServer();
   showToast('設定已儲存');
 }
 
@@ -927,17 +1026,17 @@ async function initLiff() {
 
 loadAll();
 loadSettingsUI();
-render();
+syncFromServer();
 initLiff();
 
-// 如果已有票，顯示票
 if (myTicket) {
   document.getElementById('form-tarot').style.display = 'none';
   document.getElementById('form-staffonly').style.display = 'none';
   document.getElementById('my-ticket-view').style.display = 'block';
 }
 
-setInterval(() => { loadAll(); render(); }, 4000);
+// 每 4 秒從伺服器同步最新狀態
+setInterval(() => { syncFromServer(); }, 4000);
 </script>
 </body>
 </html>
