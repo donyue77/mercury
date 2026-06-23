@@ -177,8 +177,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   <div class="tabs">
     <button class="tab active" onclick="goTab('take')" id="tab-take">取號</button>
     <button class="tab" onclick="goTab('status')" id="tab-status">等候狀況</button>
-    <button class="tab" onclick="goTab('staff')" id="tab-staff">工作人員</button>
-    <button class="tab" onclick="goTab('settings')" id="tab-settings">設定</button>
+    <button class="tab" onclick="goTab('staff')" id="tab-staff" style="display:none">工作人員</button>
+    <button class="tab" onclick="goTab('settings')" id="tab-settings" style="display:none">設定</button>
+    <button class="tab" onclick="showLoginModal()" id="tab-lock">🔒</button>
   </div>
 
   <!-- 取號 -->
@@ -394,9 +395,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title">管理密碼</div>
+      <div class="setting-row">
+        <span class="setting-label">新密碼</span>
+        <input class="setting-input" type="password" id="set-pwd" placeholder="輸入新密碼" style="width:130px"/>
+      </div>
+    </div>
     <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
     <div style="font-size:12px;color:var(--text3);margin-top:8px;text-align:center">設定儲存於本機，不影響已取號的客人</div>
   </div>
+</div>
+
+<!-- 密碼登入 Modal -->
+<div id="login-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg);border-radius:var(--r);padding:24px;width:100%;max-width:320px">
+    <div style="font-size:16px;font-weight:500;margin-bottom:6px" id="modal-title">工作人員登入</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px" id="modal-sub">請輸入管理密碼</div>
+    <input type="password" id="modal-pwd" placeholder="輸入密碼" style="width:100%;padding:10px 12px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:15px;font-family:inherit;margin-bottom:12px"/>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;margin-bottom:0" onclick="hideLoginModal()">取消</button>
+      <button class="btn btn-primary" style="flex:1;margin-bottom:0" onclick="submitLogin()">登入</button>
+    </div>
+    <div id="modal-err" style="font-size:12px;color:var(--red);margin-top:8px;text-align:center;display:none">密碼錯誤，請再試一次</div>
+  </div>
+</div>
+
+<!-- 登出按鈕（登入後顯示） -->
+<div id="logout-bar" style="display:none;background:var(--bg);border-top:0.5px solid var(--border);padding:10px 16px;text-align:right;position:sticky;bottom:0">
+  <button class="btn btn-danger" style="width:auto;margin-bottom:0;padding:6px 16px;font-size:12px" onclick="staffLogout()">登出管理模式</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -607,6 +634,8 @@ function saveSettings() {
   cfg.services.B.name = document.getElementById('set-nameB').value.trim() || '服務B';
   cfg.services.B.prefix = document.getElementById('set-prefixB').value.trim() || 'B';
   cfg.services.B.minutes = parseInt(document.getElementById('set-timeB').value) || 20;
+  const newPwd = document.getElementById('set-pwd').value.trim();
+  if (newPwd) { localStorage.setItem('qs2_pwd', newPwd); document.getElementById('set-pwd').value = ''; }
   saveAll(); applyConfig(); render();
   showToast('設定已儲存');
 }
@@ -768,6 +797,56 @@ function renderLog() {
     </div>\`
   ).join('');
 }
+
+// ── 密碼管理 ──────────────────────────────────────
+const STAFF_PASSWORD = '1234'; // 預設密碼，可在設定頁修改
+let isStaffMode = false;
+
+function showLoginModal() {
+  const modal = document.getElementById('login-modal');
+  modal.style.display = 'flex';
+  document.getElementById('modal-pwd').value = '';
+  document.getElementById('modal-err').style.display = 'none';
+  setTimeout(() => document.getElementById('modal-pwd').focus(), 100);
+}
+function hideLoginModal() {
+  document.getElementById('login-modal').style.display = 'none';
+}
+function submitLogin() {
+  const pwd = document.getElementById('modal-pwd').value;
+  const savedPwd = localStorage.getItem('qs2_pwd') || STAFF_PASSWORD;
+  if (pwd === savedPwd) {
+    isStaffMode = true;
+    hideLoginModal();
+    enterStaffMode();
+  } else {
+    document.getElementById('modal-err').style.display = 'block';
+    document.getElementById('modal-pwd').value = '';
+    document.getElementById('modal-pwd').focus();
+  }
+}
+function enterStaffMode() {
+  document.getElementById('tab-staff').style.display = '';
+  document.getElementById('tab-settings').style.display = '';
+  document.getElementById('tab-lock').style.display = 'none';
+  document.getElementById('logout-bar').style.display = 'block';
+  goTab('staff');
+  showToast('已進入管理模式');
+}
+function staffLogout() {
+  isStaffMode = false;
+  document.getElementById('tab-staff').style.display = 'none';
+  document.getElementById('tab-settings').style.display = 'none';
+  document.getElementById('tab-lock').style.display = '';
+  document.getElementById('logout-bar').style.display = 'none';
+  goTab('take');
+  showToast('已登出管理模式');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-modal').style.display === 'flex') {
+    submitLogin();
+  }
+});
 
 // ── 初始化 ────────────────────────────────────────
 const LIFF_ID = '2006903949-Sbmw12xl';
