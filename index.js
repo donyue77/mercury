@@ -260,7 +260,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
         <!-- 心願瓶 -->
         <div class="card" style="text-align:center;padding:20px 16px;margin-top:8px">
-          <div style="font-size:32px;margin-bottom:8px">🎪</div>
+          <div style="font-size:32px;margin-bottom:8px">🫙</div>
           <div style="font-size:16px;font-weight:500;margin-bottom:4px" id="svcA-name">心願瓶DIY</div>
           <div style="font-size:13px;color:var(--text2);line-height:1.7">請至服務台結帳後，由工作人員協助登記候位</div>
         </div>
