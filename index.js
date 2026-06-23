@@ -72,12 +72,62 @@ app.post('/webhook', async (req, res) => {
     if (event.type === 'message' && event.message.type === 'text') {
       const userId = event.source.userId;
       const text = event.message.text.trim();
+
+      // 手機號碼綁定
       if (/^09\d{8}$/.test(text)) {
         phoneToUserId[text] = userId;
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
           messages: [{ type: 'text', text: `🫙 心願瓶DIY｜✅ 手機號碼 ${text} 綁定成功！結帳後工作人員會幫您登記候位，輪到您時我們會主動通知您 🙏` }]
         }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
+        continue;
+      }
+
+      // 查詢塔羅牌叫號狀況
+      const isTarotQuery = ['查詢塔羅目前叫號', '塔羅目前叫號', '查詢塔羅', '塔羅叫號', '🔮查詢'].includes(text);
+      if (isTarotQuery) {
+        const q = sharedState.B;
+        const cfg = sharedCfg.services.B;
+        const cur = q.current > 0 ? cfg.prefix + String(q.current).padStart(3,'0') : '尚未開始';
+        const waiting = q.queue.length;
+        const estMins = waiting > 0 ? Math.max(0, Math.ceil(waiting / 2) - 1) * cfg.minutes : 0;
+        const estText = waiting === 0 ? '目前無人候位' : estMins > 0 ? `預估等待約 ${estMins} 分鐘` : '即將輪到下一位';
+        const replyMsg = `🔮 塔羅牌占卜｜目前叫號查詢
+
+現在服務號：${cur}
+等候人數：${waiting} 人
+${estText}
+
+輪到您時我們會主動通知您 🙏`;
+        await axios.post('https://api.line.me/v2/bot/message/reply', {
+          replyToken: event.replyToken,
+          messages: [{ type: 'text', text: replyMsg }]
+        }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
+        continue;
+      }
+
+      // 查詢心願瓶叫號狀況
+      const isWishQuery = ['查詢心願瓶目前叫號', '心願瓶目前叫號', '查詢心願瓶', '心願瓶叫號', '🫙查詢'].includes(text);
+      if (isWishQuery) {
+        const q = sharedState.A;
+        const cfg = sharedCfg.services.A;
+        const cur = q.current > 0 ? cfg.prefix + String(q.current).padStart(3,'0') : '尚未開始';
+        const waiting = q.queue.length;
+        const totalCap = q.queue.reduce((sum, e) => sum + (e.partySize || 1), 0);
+        const estMins = waiting > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * cfg.minutes : 0;
+        const estText = waiting === 0 ? '目前無人候位' : estMins > 0 ? `預估等待約 ${estMins} 分鐘` : '即將輪到下一組';
+        const replyMsg = `🫙 心願瓶DIY｜目前叫號查詢
+
+現在服務號：${cur}
+等候組數：${waiting} 組
+${estText}
+
+輪到您時我們會主動通知您 🙏`;
+        await axios.post('https://api.line.me/v2/bot/message/reply', {
+          replyToken: event.replyToken,
+          messages: [{ type: 'text', text: replyMsg }]
+        }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
+        continue;
       }
     }
   }
