@@ -659,13 +659,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
             <button class="btn" style="margin-bottom:0" onclick="repeatCall()">重複叫號</button>
           </div>
         </div>
-        <div class="divider" style="margin:0 0 12px"></div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px" id="staff-register-label">手動登記客人候位</div>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input type="text" id="staff-inp-name" placeholder="客人姓名" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
-          <input type="tel" id="staff-inp-phone" placeholder="09xxxxxxxx" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
+        <div id="staff-register-section">
+          <div class="divider" style="margin:0 0 12px"></div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:8px" id="staff-register-label">結帳後幫客人登記候位</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="staff-inp-name" placeholder="客人姓名" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
+            <input type="tel" id="staff-inp-phone" placeholder="09xxxxxxxx" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
+          </div>
+          <button class="btn btn-A" id="staff-take-btn" onclick="staffTakeNumber()" style="margin-bottom:0"></button>
         </div>
-        <button class="btn btn-A" id="staff-take-btn" onclick="staffTakeNumber()" style="margin-bottom:0"></button>
       </div>
 
       <div class="card">
@@ -943,8 +945,10 @@ function renderStaff() {
     el.className = 'svc-tab' + (s===svc ? ' active-'+s : '');
   });
   document.getElementById('staff-take-btn').textContent = \`登記 \${cfg.services[svc].name} 候位\`;
-  document.getElementById('staff-register-label').textContent =
-    svc === 'A' ? '結帳後幫客人登記候位' : '手動登記客人候位';
+  document.getElementById('staff-register-label').textContent = '結帳後幫客人登記候位';
+  // 塔羅牌（B）不需要手動登記欄位
+  const showRegister = svc === 'A';
+  document.getElementById('staff-register-section').style.display = showRegister ? 'block' : 'none';
 
   const cur = state[svc].current;
   const curEl = document.getElementById('staff-cur');
