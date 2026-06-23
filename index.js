@@ -11,8 +11,8 @@ const phoneToUserId = {};
 const userIdMap = {};
 
 let sharedState = {
-  A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 },
-  B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 }
+  A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null },
+  B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null }
 };
 let sharedCfg = {
   systemName: '排隊系統',
@@ -43,6 +43,7 @@ app.post('/api/call-next', (req, res) => {
   if (q.length === 0) return res.status(400).json({ error: '無人候位' });
   const entry = q.shift();
   sharedState[svc].current = entry.num;
+  sharedState[svc].lastCalledEntry = entry;
   sharedState[svc].servedToday++;
   sharedState[svc].history.unshift(entry.num);
   if (sharedState[svc].history.length > 10) sharedState[svc].history.pop();
@@ -53,6 +54,25 @@ app.post('/api/cancel', (req, res) => {
   sharedState[svc].queue = sharedState[svc].queue.filter(q => q.num !== num);
   res.json({ success: true });
 });
+app.post('/api/noshow', (req, res) => {
+  const { svc, num, requeue } = req.body;
+  const q = sharedState[svc].queue;
+  // Find in queue (might already be there if noshow is called on queue item)
+  let entry = q.find(e => e.num === num);
+  // Remove from queue
+  sharedState[svc].queue = q.filter(e => e.num !== num);
+  if (requeue && entry) {
+    // Re-add to end of queue
+    sharedState[svc].queue.push(entry);
+  } else if (requeue && !entry) {
+    // Was the currently called number - recreate a minimal entry to requeue
+    // Store last called info
+    entry = sharedState[svc].lastCalledEntry || null;
+    if (entry) sharedState[svc].queue.push(entry);
+  }
+  res.json({ success: true, entry: entry || null });
+});
+
 app.post('/api/reset', (req, res) => {
   const { svc } = req.body;
   if (svc) {
@@ -153,6 +173,8 @@ app.post('/api/line-notify', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
 
 
 
@@ -286,7 +308,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
             <div class="wait-badge normal" id="tk-wait"></div>
           </div>
         </div>
-        <button class="btn btn-danger" onclick="leaveQueue()">放棄候位</button>
+        <button class="btn btn-danger" onclick="leaveQueue()">取消候位</button>
       </div>
 
       <!-- 取號表單 -->
@@ -445,7 +467,12 @@ async function takeNumber(svc) {
 }
 
 async function leaveQueue() {
-  if (!myTicket || !confirm('確定要放棄候位嗎？')) return;
+  if (!myTicket) return;
+  const svcName = cfg.services[myTicket.svc].name;
+  const numStr = myTicket.svc === 'B'
+    ? cfg.services.B.prefix + String(myTicket.num).padStart(3,'0')
+    : cfg.services.A.prefix + String(myTicket.num).padStart(3,'0');
+  if (!confirm(\`確定要取消 \${svcName} \${numStr} 號的候位嗎？\n取消後無法恢復。\`)) return;
   try {
     await fetch(BACKEND_URL + '/api/cancel', {
       method: 'POST',
@@ -455,7 +482,7 @@ async function leaveQueue() {
     myTicket = null;
     localStorage.removeItem('qs_ticket');
     await syncFromServer();
-    showToast('已放棄候位');
+    showToast('已取消候位');
   } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
 
@@ -498,7 +525,7 @@ function render() {
       const estW = Math.max(0, Math.ceil(pos / conc) - 1) * cfg.services[svc].minutes;
       wEl.textContent = estW > 0 ? \`前方 \${pos} 人，約 \${estW} 分鐘\` : \`前方 \${pos} 人，即將輪到\`;
     } else {
-      wEl.className='wait-badge normal'; wEl.textContent='號碼已完成服務';
+      wEl.className='wait-badge normal'; wEl.textContent='號碼已完成服務或已取消';
     }
   } else {
     document.getElementById('my-ticket-view').style.display = 'none';
@@ -1458,6 +1485,25 @@ async function cancelPerson(num) {
   showToast('已取消候位');
 }
 
+async function noShowCurrent() {
+  const num = state.A.current;
+  if (!num) return;
+  const numStr = fmt(num);
+  const svcName = cfg.services.A.name;
+  const res = await fetch(BACKEND_URL + '/api/noshow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'A', num, requeue: true })
+  });
+  const data = await res.json();
+  await syncFromServer();
+  if (data.entry) {
+    sendLineNotify(data.entry.userId, data.entry.phone, data.entry.name,
+      \`🫙 \${svcName}｜\${data.entry.name} 您好！叫到您的 \${numStr} 號時您不在現場，已幫您重新排至末位。\n\n如果您想取消候位，請回覆「取消候位」或至取號頁面點取消按鈕。\`);
+  }
+  showToast(\`\${numStr} 已重排至末位，已通知客人\`);
+}
+
 async function resetSvc() {
   if (!confirm('確定重置今日心願瓶所有號碼？')) return;
   await fetch(BACKEND_URL + '/api/reset', {
@@ -1483,7 +1529,25 @@ function render() {
 
   const list = document.getElementById('queue-list');
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
-  list.innerHTML = q.map((entry, i) => {
+  // 顯示已叫號但未到場的提示
+  const calledNum = state.A.current;
+  let html = '';
+  if (calledNum > 0 && !q.find(e => e.num === calledNum)) {
+    // 找到叫號記錄（從history找name）
+    const calledStr = fmt(calledNum);
+    html += \`<div class="staff-entry" style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b)">
+      <div class="staff-num" style="color:var(--amber)">\${calledStr}</div>
+      <div class="staff-info">
+        <div class="staff-name" style="color:var(--amber)">剛剛叫號，等待中</div>
+        <div class="staff-meta">若客人未到場可標記</div>
+      </div>
+      <div class="staff-btns">
+        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:#fff"
+          onclick="noShowCurrent()">未到場</button>
+      </div>
+    </div>\`;
+  }
+  html += q.map((entry, i) => {
     const capSoFar = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
     const est = Math.max(0, Math.ceil(capSoFar / 5) - 1) * mins || mins;
     return \`<div class="staff-entry">
@@ -1500,6 +1564,7 @@ function render() {
       </div>
     </div>\`;
   }).join('');
+  list.innerHTML = html;
 }
 
 syncFromServer();
@@ -1692,6 +1757,25 @@ async function cancelPerson(num) {
   showToast('已取消候位');
 }
 
+async function noShowCurrent() {
+  const num = state.B.current;
+  if (!num) return;
+  const numStr = fmt(num);
+  const svcName = cfg.services.B.name;
+  const res = await fetch(BACKEND_URL + '/api/noshow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B', num, requeue: true })
+  });
+  const data = await res.json();
+  await syncFromServer();
+  if (data.entry) {
+    sendLineNotify(data.entry.userId, null, data.entry.name,
+      \`🔮 \${svcName}｜\${data.entry.name} 您好！叫到您的 \${numStr} 號時您不在現場，已幫您重新排至末位。\n\n如果您想取消候位，請回覆「取消候位」或至取號頁面點取消按鈕。\`);
+  }
+  showToast(\`\${numStr} 已重排至末位，已通知客人\`);
+}
+
 async function resetSvc() {
   if (!confirm('確定重置今日塔羅牌所有號碼？')) return;
   await fetch(BACKEND_URL + '/api/reset', {
@@ -1715,8 +1799,23 @@ function render() {
   document.getElementById('est').textContent = q.length > 0 ? (estB > 0 ? '約 ' + estB + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
-  if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
-  list.innerHTML = q.map((entry, i) => {
+  const calledNum = state.B.current;
+  let html = '';
+  if (calledNum > 0 && !q.find(e => e.num === calledNum)) {
+    html += \`<div class="staff-entry" style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b)">
+      <div class="staff-num" style="color:var(--amber)">\${fmt(calledNum)}</div>
+      <div class="staff-info">
+        <div class="staff-name" style="color:var(--amber)">剛剛叫號，等待中</div>
+        <div class="staff-meta">若客人未到場可標記</div>
+      </div>
+      <div class="staff-btns">
+        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:#fff"
+          onclick="noShowCurrent()">未到場</button>
+      </div>
+    </div>\`;
+  }
+  if (q.length === 0 && !calledNum) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
+  html += q.map((entry, i) => {
     const est = Math.max(0, Math.ceil((i + 1) / 2) - 1) * mins || mins;
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
@@ -1732,6 +1831,7 @@ function render() {
       </div>
     </div>\`;
   }).join('');
+  list.innerHTML = html || '<span class="empty">目前無人候位</span>';
 }
 
 syncFromServer();
