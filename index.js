@@ -17,8 +17,8 @@ let sharedState = {
 let sharedCfg = {
   systemName: '排隊系統',
   services: {
-    A: { name: '心願瓶DIY', prefix: 'A', minutes: 15 },
-    B: { name: '塔羅牌占卜', prefix: 'T', minutes: 20 }
+    A: { name: '心願瓶DIY', prefix: 'A', minutes: 12, concurrent: 5 },
+    B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15, concurrent: 2 }
   }
 };
 
@@ -103,10 +103,9 @@ app.post('/api/line-notify', async (req, res) => {
   }
 });
 
-// 頁面路由
-app.get('/queue', (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!DOCTYPE html>
+
+
+app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -416,7 +415,8 @@ function render() {
   // 心願瓶等候資訊
   const qA = state.A.queue;
   document.getElementById('svcA-waiting').textContent = qA.length + ' 人';
-  document.getElementById('svcA-est').textContent = qA.length > 0 ? Math.round(qA.length * cfg.services.A.minutes) + ' 分鐘' : '無需等候';
+  const estA = qA.length > 0 ? Math.max(0, Math.ceil(qA.length / 5) - 1) * cfg.services.A.minutes : 0;
+  document.getElementById('svcA-est').textContent = qA.length > 0 ? (estA > 0 ? estA + ' 分鐘' : '即將輪到') : '無需等候';
 
   // 票券顯示
   if (myTicket) {
@@ -438,7 +438,9 @@ function render() {
       wEl.className='wait-badge soon'; wEl.textContent='您是下一位，請準備！';
     } else if (pos > 0) {
       wEl.className='wait-badge normal';
-      wEl.textContent=\`前方 \${pos} 人，約 \${Math.round(pos * cfg.services[svc].minutes)} 分鐘\`;
+      const conc = svc === 'A' ? 5 : 2;
+      const estW = Math.max(0, Math.ceil(pos / conc) - 1) * cfg.services[svc].minutes;
+      wEl.textContent = estW > 0 ? \`前方 \${pos} 人，約 \${estW} 分鐘\` : \`前方 \${pos} 人，即將輪到\`;
     } else {
       wEl.className='wait-badge normal'; wEl.textContent='號碼已完成服務';
     }
@@ -460,7 +462,9 @@ function renderStatus() {
   el.textContent = numStr; el.className = 'big-num color-' + svc;
   document.getElementById('status-label').textContent = cur > 0 ? \`請 \${numStr} 號前往\` : '等待服務';
   document.getElementById('status-waiting').textContent = q.length;
-  document.getElementById('status-est').textContent = q.length > 0 ? Math.round(q.length * mins) : '—';
+  const concurrent = svc === 'A' ? 5 : 2;
+  const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / concurrent) - 1) * mins : 0;
+  document.getElementById('status-est').textContent = q.length > 0 ? estMins || '< ' + mins : '—';
   const pct = Math.min(100, Math.round(q.length / 20 * 100));
   document.getElementById('status-bar').style.width = pct + '%';
   document.getElementById('status-bar').className = 'wait-bar-fill ' + svc;
@@ -505,11 +509,8 @@ setInterval(syncFromServer, 4000);
 </script>
 </body>
 </html>
-`);
-});
-app.get('/staff', (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!DOCTYPE html>
+`); });
+app.get('/staff', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -840,7 +841,7 @@ async function staffTakeNumber() {
   const name = document.getElementById('staff-inp-name').value.trim();
   const phone = document.getElementById('staff-inp-phone').value.trim();
   if (!name) { showToast('請輸入客人姓名'); return; }
-  if (!phone || !/^09\\d{8}$/.test(phone)) { showToast('請輸入客人手機號碼'); return; }
+  if (!phone || !/^09\d{8}$/.test(phone)) { showToast('請輸入客人手機號碼'); return; }
   try {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
@@ -861,7 +862,8 @@ async function notifyPerson(svc, num) {
   const entry = state[svc].queue.find(q => q.num === num);
   if (!entry) return;
   const pos = state[svc].queue.indexOf(entry);
-  const est = Math.round((pos+1) * cfg.services[svc].minutes);
+  const concurrent = svc === 'A' ? 5 : 2;
+  const est = Math.max(0, Math.ceil((pos + 1) / concurrent) - 1) * cfg.services[svc].minutes || cfg.services[svc].minutes;
   const svcIcon2 = svc === 'B' ? '🔮' : '🫙';
   sendLineNotify(entry.userId, entry.phone, entry.name,
     \`\${svcIcon2} \${cfg.services[svc].name}｜⏰ \${entry.name} 您好！您的 \${fmt(svc, num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
@@ -954,7 +956,8 @@ function renderStaff() {
   const q = state[svc].queue;
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   list.innerHTML = q.map((entry, i) => {
-    const est = Math.round((i+1) * cfg.services[svc].minutes);
+    const concurrent = svc === 'A' ? 5 : 2;
+    const est = Math.max(0, Math.ceil((i + 1) / concurrent) - 1) * cfg.services[svc].minutes || cfg.services[svc].minutes;
     return \`<div class="staff-entry">
       <div class="staff-num color-\${svc}">\${fmt(svc, entry.num)}</div>
       <div class="staff-info">
@@ -990,11 +993,8 @@ setInterval(syncFromServer, 4000);
 </script>
 </body>
 </html>
-`);
-});
-app.get('/staff/checkout', (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!DOCTYPE html>
+`); });
+app.get('/staff/checkout', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -1119,11 +1119,23 @@ async function syncFromServer() {
   } catch(e) {}
 }
 
+async function sendLineNotify(phone, name, message) {
+  if (!phone) return;
+  try {
+    await fetch(BACKEND_URL + '/api/line-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, name, message })
+    });
+  } catch(e) {}
+}
+
 function renderStatus() {
   const q = state.A.queue;
   const mins = cfg.services.A.minutes;
   document.getElementById('waiting').textContent = q.length + ' 人';
-  document.getElementById('est').textContent = q.length > 0 ? '約 ' + Math.round(q.length * mins) + ' 分鐘' : '無需等候';
+  const estA = q.length > 0 ? Math.max(0, Math.ceil(q.length / 5) - 1) * mins : 0;
+  document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '無需等候';
   document.getElementById('current').textContent = state.A.current > 0 ? fmt(state.A.current) : '—';
 }
 
@@ -1131,7 +1143,7 @@ async function register() {
   const name = document.getElementById('inp-name').value.trim();
   const phone = document.getElementById('inp-phone').value.trim();
   if (!name) { showToast('請輸入客人姓名'); return; }
-  if (!phone || !/^09\\d{8}$/.test(phone)) { showToast('請輸入有效手機號碼'); return; }
+  if (!phone || !/^09\d{8}$/.test(phone)) { showToast('請輸入有效手機號碼'); return; }
   try {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
@@ -1141,13 +1153,18 @@ async function register() {
     const data = await res.json();
     if (!data.success) { showToast('登記失敗，請再試一次'); return; }
     const numStr = fmt(data.num);
+    await syncFromServer();
+    const waiting = state.A.queue.length;
+    const est = Math.max(0, Math.ceil(waiting / 5) - 1) * cfg.services.A.minutes;
+    const waitMsg = waiting <= 5 ? '目前正在服務中，請稍候片刻！' : \`目前前方還有 \${waiting - 5} 人，預計約 \${est} 分鐘後輪到您。\`;
+    sendLineNotify(phone, name,
+      \`🫙 心願瓶DIY｜✅ \${name} 您好！已成功登記候位，您的號碼是 \${numStr}。\${waitMsg}輪到您時我們會再通知您 🙏\`);
     document.getElementById('success-num').textContent = numStr;
-    document.getElementById('success-sub').textContent = \`\${name} 的號碼，請告知客人\`;
+    document.getElementById('success-sub').textContent = \`已傳送 LINE 通知給 \${name}\`;
     document.getElementById('success-banner').classList.add('show');
     document.getElementById('inp-name').value = '';
     document.getElementById('inp-phone').value = '';
     document.getElementById('inp-name').focus();
-    await syncFromServer();
     setTimeout(() => document.getElementById('success-banner').classList.remove('show'), 5000);
   } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
@@ -1162,11 +1179,8 @@ setInterval(syncFromServer, 4000);
 </script>
 </body>
 </html>
-`);
-});
-app.get('/staff/wishbottle', (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!DOCTYPE html>
+`); });
+app.get('/staff/wishbottle', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -1332,7 +1346,7 @@ async function notifyPerson(num) {
   const entry = state.A.queue.find(q => q.num === num);
   if (!entry) return;
   const pos = state.A.queue.indexOf(entry);
-  const est = Math.round((pos + 1) * cfg.services.A.minutes);
+  const est = Math.max(0, Math.ceil((pos + 1) / 5) - 1) * cfg.services.A.minutes || cfg.services.A.minutes;
   sendLineNotify(entry.userId, entry.phone, entry.name,
     \`🫙 心願瓶DIY｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   showToast('已傳送提醒給 ' + entry.name);
@@ -1369,12 +1383,13 @@ function render() {
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號前往領瓶\` : '等待開始';
   document.getElementById('waiting').textContent = q.length;
   document.getElementById('served').textContent = state.A.servedToday;
-  document.getElementById('est').textContent = q.length > 0 ? '約 ' + Math.round(q.length * mins) + ' 分鐘' : '—';
+  const estA = q.length > 0 ? Math.max(0, Math.ceil(q.length / 5) - 1) * mins : 0;
+  document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   list.innerHTML = q.map((entry, i) => {
-    const est = Math.round((i + 1) * mins);
+    const est = Math.max(0, Math.ceil((i + 1) / 5) - 1) * mins || mins;
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
       <div class="staff-info">
@@ -1396,11 +1411,8 @@ setInterval(syncFromServer, 4000);
 </script>
 </body>
 </html>
-`);
-});
-app.get('/staff/tarot', (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!DOCTYPE html>
+`); });
+app.get('/staff/tarot', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -1566,7 +1578,7 @@ async function notifyPerson(num) {
   const entry = state.B.queue.find(q => q.num === num);
   if (!entry) return;
   const pos = state.B.queue.indexOf(entry);
-  const est = Math.round((pos + 1) * cfg.services.B.minutes);
+  const est = Math.max(0, Math.ceil((pos + 1) / 2) - 1) * cfg.services.B.minutes || cfg.services.B.minutes;
   sendLineNotify(entry.userId, entry.name,
     \`🔮 塔羅牌占卜｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   showToast('已傳送提醒給 ' + entry.name);
@@ -1603,12 +1615,13 @@ function render() {
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
   document.getElementById('waiting').textContent = q.length;
   document.getElementById('served').textContent = state.B.servedToday;
-  document.getElementById('est').textContent = q.length > 0 ? '約 ' + Math.round(q.length * mins) + ' 分鐘' : '—';
+  const estB = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
+  document.getElementById('est').textContent = q.length > 0 ? (estB > 0 ? '約 ' + estB + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   list.innerHTML = q.map((entry, i) => {
-    const est = Math.round((i + 1) * mins);
+    const est = Math.max(0, Math.ceil((i + 1) / 2) - 1) * mins || mins;
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
       <div class="staff-info">
@@ -1630,8 +1643,7 @@ setInterval(syncFromServer, 4000);
 </script>
 </body>
 </html>
-`);
-});
+`); });
 
 app.get('/', (req, res) => res.send('排隊系統後端運作中'));
 
