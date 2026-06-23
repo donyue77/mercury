@@ -57,18 +57,21 @@ app.post('/api/cancel', (req, res) => {
 app.post('/api/noshow', (req, res) => {
   const { svc, num, requeue } = req.body;
   const q = sharedState[svc].queue;
-  // Find in queue (might already be there if noshow is called on queue item)
   let entry = q.find(e => e.num === num);
-  // Remove from queue
+  // Remove from current position
   sharedState[svc].queue = q.filter(e => e.num !== num);
+  // Use lastCalledEntry if not found in queue
+  if (!entry) entry = sharedState[svc].lastCalledEntry || null;
   if (requeue && entry) {
-    // Re-add to end of queue
-    sharedState[svc].queue.push(entry);
-  } else if (requeue && !entry) {
-    // Was the currently called number - recreate a minimal entry to requeue
-    // Store last called info
-    entry = sharedState[svc].lastCalledEntry || null;
-    if (entry) sharedState[svc].queue.push(entry);
+    if (svc === 'A') {
+      // 心願瓶：插入第 2 位（index 1），給客人多一點時間
+      const newQ = [...sharedState[svc].queue];
+      newQ.splice(1, 0, entry);
+      sharedState[svc].queue = newQ;
+    } else {
+      // 塔羅牌：排至末位
+      sharedState[svc].queue.push(entry);
+    }
   }
   res.json({ success: true, entry: entry || null });
 });
@@ -173,6 +176,7 @@ app.post('/api/line-notify', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
@@ -1499,9 +1503,9 @@ async function noShowCurrent() {
   await syncFromServer();
   if (data.entry) {
     sendLineNotify(data.entry.userId, data.entry.phone, data.entry.name,
-      \`🫙 \${svcName}｜\${data.entry.name} 您好！叫到您的 \${numStr} 號時您不在現場，已幫您重新排至末位。\n\n如果您想取消候位，請回覆「取消候位」或至取號頁面點取消按鈕。\`);
+      \`🫙 \${svcName}｜\${data.entry.name} 您好！為維持現場服務順暢，您的 \${numStr} 號已稍作順延，將於下下組為您服務，感謝您的體諒與耐心等候，請留意叫號通知 🙏\n\n如需取消候位，請回覆「取消候位」或至取號頁面點取消按鈕。\`);
   }
-  showToast(\`\${numStr} 已重排至末位，已通知客人\`);
+  showToast(\`\${numStr} 已順延至第 2 位，已通知客人\`);
 }
 
 async function resetSvc() {
