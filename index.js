@@ -9,7 +9,6 @@ app.use(express.json());
 const LINE_TOKEN = process.env.LINE_TOKEN;
 const userMap = {};
 
-// 提供取號網頁
 app.get('/queue', (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -485,10 +484,9 @@ function setStaffSvc(s) { currentStaffSvc = s; renderStaff(); }
 // ── 取號邏輯 ──────────────────────────────────────
 function takeNumber(svc) {
   const name = document.getElementById('inp-name').value.trim();
-  const phone = document.getElementById('inp-phone').value.trim();
   if (!name) { showToast('請輸入姓名'); return; }
-  if (!phone || !/^09\\d{8}$/.test(phone)) { showToast('請輸入有效手機號碼'); return; }
-  _issueTicket(svc, name, phone);
+  if (!lineUserId) { showToast('請在 LINE 內開啟此頁面'); return; }
+  _issueTicket(svc, name, lineUserId);
 }
 function takeNumberFromForm(svc) {
   const name = document.getElementById('inp-name2').value.trim();
@@ -817,7 +815,6 @@ setInterval(() => { loadAll(); render(); }, 4000);
 `);
 });
 
-// LIFF 登入後註冊 userId
 app.post('/api/register', async (req, res) => {
   const { userId, name } = req.body;
   if (!userId) return res.status(400).json({ error: '缺少 userId' });
@@ -825,7 +822,6 @@ app.post('/api/register', async (req, res) => {
   res.json({ success: true });
 });
 
-// 傳送 LINE 通知
 app.post('/api/line-notify', async (req, res) => {
   const { userId, name, message } = req.body;
   if (!userId || !message) return res.status(400).json({ error: '缺少必要參數' });
