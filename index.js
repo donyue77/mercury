@@ -192,6 +192,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -321,6 +322,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         <button class="btn btn-danger" id="cancel-btn" onclick="leaveQueue()" style="display:none">取消候位</button>
         <!-- 心願瓶提示 -->
         <div id="wishbottle-notice" style="display:none;font-size:13px;color:var(--text3);text-align:center;padding:8px 0">如需取消候位，請至服務台洽詢工作人員</div>
+      </div>
+
+      <!-- 另一個服務的等候狀況 -->
+      <div id="other-svc-status" style="display:none">
+        <div style="font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin:4px 0 8px">其他服務狀況</div>
+        <div class="card" style="padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span id="other-svc-icon" style="font-size:20px"></span>
+            <span id="other-svc-name" style="font-size:14px;font-weight:500;color:var(--text)"></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">目前服務號</span>
+            <span class="stat-val" id="other-svc-cur">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">等候人數</span>
+            <span class="stat-val" id="other-svc-waiting">0</span>
+          </div>
+          <div class="stat-row" style="border:none">
+            <span class="stat-label">預估等待</span>
+            <span class="stat-val" id="other-svc-est">—</span>
+          </div>
+        </div>
       </div>
 
       <!-- 取號表單 -->
@@ -558,9 +582,28 @@ function render() {
     } else {
       wEl.className='wait-badge normal'; wEl.textContent='號碼已完成服務或已取消';
     }
+    // 顯示另一個服務的狀況
+    const otherSvc = myTicket.svc === 'B' ? 'A' : 'B';
+    const otherIcon = otherSvc === 'B' ? '🔮' : '🫙';
+    const otherState = state[otherSvc];
+    const otherCfg = cfg.services[otherSvc];
+    const otherCur = otherState.current > 0 ? otherCfg.prefix + String(otherState.current).padStart(3,'0') : '—';
+    const otherQ = otherState.queue.length;
+    const otherConc = otherSvc === 'A' ? 5 : 2;
+    const otherTotalCap = otherSvc === 'A'
+      ? otherState.queue.reduce((sum, e) => sum + (e.partySize || 1), 0)
+      : otherQ;
+    const otherEst = otherQ > 0 ? Math.max(0, Math.ceil(otherTotalCap / otherConc) - 1) * otherCfg.minutes : 0;
+    document.getElementById('other-svc-status').style.display = 'block';
+    document.getElementById('other-svc-icon').textContent = otherIcon;
+    document.getElementById('other-svc-name').textContent = otherCfg.name;
+    document.getElementById('other-svc-cur').textContent = otherCur;
+    document.getElementById('other-svc-waiting').textContent = otherQ + ' 人';
+    document.getElementById('other-svc-est').textContent = otherQ > 0 ? (otherEst > 0 ? '約 ' + otherEst + ' 分鐘' : '即將輪到') : '無需等候';
   } else {
     document.getElementById('my-ticket-view').style.display = 'none';
     document.getElementById('take-form').style.display = 'block';
+    document.getElementById('other-svc-status').style.display = 'none';
   }
 
   renderStatus();
