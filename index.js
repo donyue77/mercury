@@ -29,11 +29,12 @@ app.post('/api/state', (req, res) => {
   res.json({ success: true });
 });
 app.post('/api/issue', (req, res) => {
-  const { svc, name, userId, phone } = req.body;
+  const { svc, name, userId, phone, partySize } = req.body;
   if (!svc || !name) return res.status(400).json({ error: '缺少參數' });
   sharedState[svc].lastIssued++;
   const num = sharedState[svc].lastIssued;
-  sharedState[svc].queue.push({ num, name, userId: userId || '—', phone: phone || null });
+  const size = Math.min(Math.max(parseInt(partySize) || 1, 1), 6);
+  sharedState[svc].queue.push({ num, name, userId: userId || '—', phone: phone || null, partySize: size });
   res.json({ success: true, num });
 });
 app.post('/api/call-next', (req, res) => {
@@ -102,6 +103,8 @@ app.post('/api/line-notify', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
 
 
 
@@ -1050,6 +1053,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .success-sub{font-size:13px;color:var(--green);text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
+.party-btn{padding:8px 16px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:transparent;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s}
+.party-btn.active{background:var(--sA);color:#fff;border-color:var(--sA)}
+.party-btn:hover:not(.active){background:var(--bg3)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 </style>
 </head>
@@ -1084,6 +1090,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <label>客人姓名</label>
       <input type="text" id="inp-name" placeholder="請輸入姓名" autocomplete="off"/>
     </div>
+    <div class="field">
+      <label>人數</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="party-btns">
+        <button type="button" class="party-btn active" onclick="setParty(1)">1 人</button>
+        <button type="button" class="party-btn" onclick="setParty(2)">2 人</button>
+        <button type="button" class="party-btn" onclick="setParty(3)">3 人</button>
+        <button type="button" class="party-btn" onclick="setParty(4)">4 人</button>
+        <button type="button" class="party-btn" onclick="setParty(5)">5 人</button>
+        <button type="button" class="party-btn" onclick="setParty(6)">6 人</button>
+      </div>
+    </div>
     <div class="field" style="margin-bottom:16px">
       <label>手機號碼（用於 LINE 通知）</label>
       <input type="tel" id="inp-phone" placeholder="09xxxxxxxx"/>
@@ -1112,6 +1129,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
 <script>
 const BACKEND_URL = 'https://mercury-gcac.onrender.com';
+let partySize = 1;
+
+function setParty(n) {
+  partySize = n;
+  document.querySelectorAll('.party-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i + 1 === n);
+  });
+}
 let cfg = { services: { A: { name: '心願瓶DIY', prefix: 'A', minutes: 15 } } };
 let state = { A: { current: 0, lastIssued: 0, queue: [], servedToday: 0 } };
 
@@ -1147,7 +1172,8 @@ function renderStatus() {
   const q = state.A.queue;
   const mins = cfg.services.A.minutes;
   document.getElementById('waiting').textContent = q.length + ' 人';
-  const estA = q.length > 0 ? Math.max(0, Math.ceil(q.length / 5) - 1) * mins : 0;
+  const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
+  const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '無需等候';
   document.getElementById('current').textContent = state.A.current > 0 ? fmt(state.A.current) : '—';
 }
@@ -1164,23 +1190,25 @@ async function register() {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ svc: 'A', name, phone: cleanPhone, userId: null })
+      body: JSON.stringify({ svc: 'A', name, phone: cleanPhone, userId: null, partySize })
     });
     const data = await res.json();
     if (!data.success) { showToast('登記失敗，請再試一次'); return; }
     const numStr = fmt(data.num);
     await syncFromServer();
     const waiting = state.A.queue.length;
-    const est = Math.max(0, Math.ceil(waiting / 5) - 1) * cfg.services.A.minutes;
-    const waitMsg = waiting <= 5 ? '目前正在服務中，請稍候片刻！' : \`目前前方還有 \${waiting - 5} 人，預計約 \${est} 分鐘後輪到您。\`;
+    const totalCapAfter = state.A.queue.reduce((sum, e) => sum + (e.partySize || 1), 0);
+    const est = Math.max(0, Math.ceil(totalCapAfter / 5) - 1) * cfg.services.A.minutes;
+    const waitMsg = totalCapAfter <= 5 ? '目前正在服務中，請稍候片刻！' : \`預計約 \${est} 分鐘後輪到您。\`;
     sendLineNotify(cleanPhone, name,
-      \`🫙 心願瓶DIY｜✅ \${name} 您好！已成功登記候位，您的號碼是 \${numStr}。\${waitMsg}輪到您時我們會再通知您 🙏\`);
+      \`🫙 心願瓶DIY｜✅ \${name} 您好！已成功登記候位，您的號碼是 \${numStr}（\${partySize} 人）。\${waitMsg}輪到您時我們會再通知您 🙏\`);
     document.getElementById('success-num').textContent = numStr;
     document.getElementById('success-sub').textContent = \`已傳送 LINE 通知給 \${name}\`;
     document.getElementById('success-banner').classList.add('show');
     document.getElementById('inp-name').value = '';
     document.getElementById('inp-phone').value = '';
     document.getElementById('inp-name').focus();
+    setParty(1);
     setTimeout(() => document.getElementById('success-banner').classList.remove('show'), 5000);
   } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
@@ -1361,7 +1389,8 @@ async function notifyPerson(num) {
   const entry = state.A.queue.find(q => q.num === num);
   if (!entry) return;
   const pos = state.A.queue.indexOf(entry);
-  const est = Math.max(0, Math.ceil((pos + 1) / 5) - 1) * cfg.services.A.minutes || cfg.services.A.minutes;
+  const capSoFar = state.A.queue.slice(0, pos + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
+  const est = Math.max(0, Math.ceil(capSoFar / 5) - 1) * cfg.services.A.minutes || cfg.services.A.minutes;
   sendLineNotify(entry.userId, entry.phone, entry.name,
     \`🫙 心願瓶DIY｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   showToast('已傳送提醒給 ' + entry.name);
@@ -1396,15 +1425,17 @@ function render() {
   const mins = cfg.services.A.minutes;
   document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號前往領瓶\` : '等待開始';
-  document.getElementById('waiting').textContent = q.length;
   document.getElementById('served').textContent = state.A.servedToday;
-  const estA = q.length > 0 ? Math.max(0, Math.ceil(q.length / 5) - 1) * mins : 0;
+  document.getElementById('waiting').textContent = q.length + (totalCap > q.length ? \` (共 \${totalCap} 人)\` : '');
+  const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
+  const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   list.innerHTML = q.map((entry, i) => {
-    const est = Math.max(0, Math.ceil((i + 1) / 5) - 1) * mins || mins;
+    const capSoFar = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
+    const est = Math.max(0, Math.ceil(capSoFar / 5) - 1) * mins || mins;
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
       <div class="staff-info">
