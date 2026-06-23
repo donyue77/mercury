@@ -187,6 +187,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1775,7 +1776,7 @@ async function noShowCurrent() {
   await syncFromServer();
   if (data.entry) {
     sendLineNotify(data.entry.userId, null, data.entry.name,
-      \`🔮 \${svcName}｜\${data.entry.name} 您好！叫到您的 \${numStr} 號時您不在現場，已幫您重新排至末位。\n\n如果您想取消候位，請回覆「取消候位」或至取號頁面點取消按鈕。\`);
+      \`🔮 \${svcName}｜\${data.entry.name} 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位。若您仍在現場附近，請留意後續叫號通知；如需取消候位，可回覆「取消候位」或至取號頁面點取消按鈕，感謝您的配合 🙏\`);
   }
   showToast(\`\${numStr} 已重排至末位，已通知客人\`);
 }
