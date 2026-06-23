@@ -105,6 +105,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1062,6 +1063,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   <div class="success-banner" id="success-banner">
     <div class="success-num" id="success-num">A001</div>
     <div class="success-sub" id="success-sub">登記成功，請告知客人號碼</div>
+  </div>
+
+  <!-- 提醒提示 -->
+  <div style="background:var(--amber-bg);border:0.5px solid var(--amber-b);border-radius:var(--r);padding:14px 16px;margin:14px 14px 0">
+    <div style="font-size:13px;font-weight:500;color:var(--amber);margin-bottom:6px">📋 結帳前請提醒客人</div>
+    <div style="font-size:13px;color:var(--amber);line-height:1.8">
+      1. 加入 LINE 官方帳號好友<br/>
+      2. 在聊天室傳送手機號碼（例：0912345678）<br/>
+      3. 收到綁定成功訊息後再進行結帳登記
+    </div>
   </div>
 
   <!-- 登記表單 -->
