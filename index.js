@@ -82,7 +82,7 @@ app.post('/webhook', async (req, res) => {
         phoneToUserId[text] = userId;
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
-          messages: [{ type: 'text', text: `✅ 手機號碼 ${text} 綁定成功！結帳後工作人員會幫您登記候位，輪到您時我們會主動通知您 🙏` }]
+          messages: [{ type: 'text', text: `🫙 心願瓶DIY｜✅ 手機號碼 ${text} 綁定成功！結帳後工作人員會幫您登記候位，輪到您時我們會主動通知您 🙏` }]
         }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
       }
     }
@@ -112,7 +112,6 @@ app.post('/api/line-notify', async (req, res) => {
   }
 });
 
-// 客戶端頁面
 app.get('/queue', (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -391,7 +390,8 @@ async function takeNumber(svc) {
     if (!data.success) { showToast('取號失敗，請再試一次'); return; }
     myTicket = { svc, num: data.num, name, userId: lineUserId, time: nowTime() };
     localStorage.setItem('qs_ticket', JSON.stringify(myTicket));
-    sendLineNotify(lineUserId, name, \`您好 \${name}！您已取得 \${fmt(svc, data.num)} 號（\${cfg.services[svc].name}），輪到您前會再通知您，感謝耐心等候 🙏\`);
+    const svcIcon = svc === 'B' ? '🔮' : '🫙';
+    sendLineNotify(lineUserId, name, \`\${svcIcon} \${cfg.services[svc].name}｜您好 \${name}！您已取得 \${fmt(svc, data.num)} 號，輪到您前會再通知您，感謝耐心等候 🙏\`);
     await syncFromServer();
     showToast('取號成功：' + fmt(svc, data.num));
   } catch(e) { showToast('網路錯誤，請再試一次'); }
@@ -516,7 +516,6 @@ setInterval(syncFromServer, 4000);
 `);
 });
 
-// 工作人員頁面
 app.get('/staff', (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -822,14 +821,16 @@ async function callNext() {
     if (!data.success) { showToast(data.error || '叫號失敗'); return; }
     const entry = data.called;
     addLog(currentStaffSvc, \`叫號 \${fmt(currentStaffSvc, entry.num)}（\${entry.name}）\`);
+    const svcIcon = currentStaffSvc === 'B' ? '🔮' : '🫙';
+    const svcName = cfg.services[currentStaffSvc].name;
     sendLineNotify(entry.userId, entry.phone, entry.name,
-      \`📢 \${entry.name} 您好！現在叫到 \${fmt(currentStaffSvc, entry.num)} 號，請立即回到現場，謝謝！\`);
+      \`\${svcIcon} \${svcName}｜📢 \${entry.name} 您好！現在叫到 \${fmt(currentStaffSvc, entry.num)} 號，請立即回到現場，謝謝！\`);
     await syncFromServer();
     if (state[currentStaffSvc].queue.length > 0) {
       const next = state[currentStaffSvc].queue[0];
       addLog(currentStaffSvc, \`提醒 \${next.name}（\${fmt(currentStaffSvc, next.num)}）準備\`);
       sendLineNotify(next.userId, next.phone, next.name,
-        \`⏰ \${next.name} 您好！您是下一位（\${fmt(currentStaffSvc, next.num)} 號），請提前回到現場準備。\`);
+        \`\${svcIcon} \${svcName}｜⏰ \${next.name} 您好！您是下一位（\${fmt(currentStaffSvc, next.num)} 號），請提前回到現場準備。\`);
     }
     showToast('已叫號：' + fmt(currentStaffSvc, entry.num));
   } catch(e) { showToast('網路錯誤'); }
@@ -868,8 +869,9 @@ async function notifyPerson(svc, num) {
   if (!entry) return;
   const pos = state[svc].queue.indexOf(entry);
   const est = Math.round((pos+1) * cfg.services[svc].minutes);
+  const svcIcon2 = svc === 'B' ? '🔮' : '🫙';
   sendLineNotify(entry.userId, entry.phone, entry.name,
-    \`⏰ \${entry.name} 您好！您的 \${fmt(svc, num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
+    \`\${svcIcon2} \${cfg.services[svc].name}｜⏰ \${entry.name} 您好！您的 \${fmt(svc, num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   addLog(svc, \`提醒 \${entry.name}（\${fmt(svc, num)}），約 \${est} 分鐘後\`);
   showToast('已傳送提醒');
 }
