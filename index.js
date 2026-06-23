@@ -190,6 +190,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -490,8 +491,23 @@ async function leaveQueue() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ svc: myTicket.svc, num: myTicket.num })
     });
+    const numStr = fmt(myTicket.svc, myTicket.num);
+    const svcName = cfg.services[myTicket.svc].name;
+    const cancelUserId = myTicket.userId;
+    const cancelName = myTicket.name;
     myTicket = null;
     localStorage.removeItem('qs_ticket');
+    // 傳送 LINE 取消確認
+    if (cancelUserId && cancelUserId !== '—') {
+      await fetch(BACKEND_URL + '/api/line-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: cancelUserId,
+          message: \`✅ \${cancelName} 您好！您的\${svcName} \${numStr} 號候位已成功取消。\n\n如有需要歡迎重新取號，感謝您！\`
+        })
+      }).catch(()=>{});
+    }
     await syncFromServer();
     showToast('已取消候位');
   } catch(e) { showToast('網路錯誤，請再試一次'); }
