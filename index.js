@@ -188,6 +188,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -313,7 +314,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
             <div class="wait-badge normal" id="tk-wait"></div>
           </div>
         </div>
-        <button class="btn btn-danger" onclick="leaveQueue()">取消候位</button>
+        <!-- 塔羅牌才顯示取消按鈕 -->
+        <button class="btn btn-danger" id="cancel-btn" onclick="leaveQueue()" style="display:none">取消候位</button>
+        <!-- 心願瓶提示 -->
+        <div id="wishbottle-notice" style="display:none;font-size:13px;color:var(--text3);text-align:center;padding:8px 0">如需取消候位，請至服務台洽詢工作人員</div>
       </div>
 
       <!-- 取號表單 -->
@@ -473,6 +477,7 @@ async function takeNumber(svc) {
 
 async function leaveQueue() {
   if (!myTicket) return;
+  if (myTicket.svc === 'A') { showToast('心願瓶取消候位請至服務台洽詢'); return; }
   const svcName = cfg.services[myTicket.svc].name;
   const numStr = myTicket.svc === 'B'
     ? cfg.services.B.prefix + String(myTicket.num).padStart(3,'0')
@@ -510,6 +515,9 @@ function render() {
   if (myTicket) {
     document.getElementById('my-ticket-view').style.display = 'block';
     document.getElementById('take-form').style.display = 'none';
+    // 只有塔羅牌才顯示取消按鈕
+    document.getElementById('cancel-btn').style.display = myTicket.svc === 'B' ? 'flex' : 'none';
+    document.getElementById('wishbottle-notice').style.display = myTicket.svc === 'A' ? 'block' : 'none';
     const { svc, num, name, time } = myTicket;
     const numStr = fmt(svc, num);
     const el = document.getElementById('tk-num');
@@ -1206,6 +1214,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <span class="stat-val" id="current">—</span>
     </div>
   </div>
+
+  <!-- 取消候位 -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px">取消客人候位</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">客人退款後，請在此取消其候位</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="text" id="cancel-inp-name" placeholder="客人姓名" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
+      <input type="tel" id="cancel-inp-phone" placeholder="手機號碼" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
+    </div>
+    <button class="btn" style="color:var(--red);border-color:var(--red-b);margin-bottom:0" onclick="cancelByPhone()">取消此客人的候位</button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -1227,6 +1246,33 @@ function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+async function cancelByPhone() {
+  const name = document.getElementById('cancel-inp-name').value.trim();
+  const rawPhone = document.getElementById('cancel-inp-phone').value.trim();
+  const phone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
+  if (!name && !phone) { showToast('請輸入姓名或手機號碼'); return; }
+  try {
+    const res = await fetch(BACKEND_URL + '/api/state');
+    const data = await res.json();
+    const q = data.state.A.queue;
+    const entry = q.find(e =>
+      (phone && e.phone === phone) ||
+      (name && e.name === name)
+    );
+    if (!entry) { showToast('找不到此客人的候位'); return; }
+    if (!confirm(\`確定取消 \${entry.name}（\${fmt(entry.num)}）的候位？\`)) return;
+    await fetch(BACKEND_URL + '/api/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc: 'A', num: entry.num })
+    });
+    document.getElementById('cancel-inp-name').value = '';
+    document.getElementById('cancel-inp-phone').value = '';
+    await syncFromServer();
+    showToast(\`已取消 \${entry.name} 的候位\`);
+  } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
 
 async function syncFromServer() {
@@ -1504,7 +1550,7 @@ async function noShowCurrent() {
   await syncFromServer();
   if (data.entry) {
     sendLineNotify(data.entry.userId, data.entry.phone, data.entry.name,
-      \`🫙 \${svcName}｜\${data.entry.name} 您好！為維持現場服務順暢，您的 \${numStr} 號已稍作順延，將於下下組為您服務，感謝您的體諒與耐心等候，請留意叫號通知 🙏\n\n如需取消候位，請回覆「取消候位」或至取號頁面點取消按鈕。\`);
+      \`🫙 \${svcName}｜\${data.entry.name} 您好！為維持現場服務順暢，您的 \${numStr} 號已稍作順延，將於下下組為您服務，感謝您的體諒與耐心等候，請留意叫號通知 🙏\`);
   }
   showToast(\`\${numStr} 已順延至第 2 位，已通知客人\`);
 }
