@@ -106,6 +106,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1154,12 +1155,13 @@ async function register() {
   const name = document.getElementById('inp-name').value.trim();
   const phone = document.getElementById('inp-phone').value.trim();
   if (!name) { showToast('請輸入客人姓名'); return; }
-  if (!phone || !/^09\d{8}$/.test(phone)) { showToast('請輸入有效手機號碼'); return; }
+  const cleanPhone = phone.replace(/[\s\-]/g, '');
+  if (!cleanPhone || !/^09\d{8}$/.test(cleanPhone)) { showToast('請輸入有效手機號碼（格式：09xxxxxxxx）'); return; }
   try {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ svc: 'A', name, phone, userId: null })
+      body: JSON.stringify({ svc: 'A', name, phone: cleanPhone, userId: null })
     });
     const data = await res.json();
     if (!data.success) { showToast('登記失敗，請再試一次'); return; }
@@ -1168,7 +1170,7 @@ async function register() {
     const waiting = state.A.queue.length;
     const est = Math.max(0, Math.ceil(waiting / 5) - 1) * cfg.services.A.minutes;
     const waitMsg = waiting <= 5 ? '目前正在服務中，請稍候片刻！' : \`目前前方還有 \${waiting - 5} 人，預計約 \${est} 分鐘後輪到您。\`;
-    sendLineNotify(phone, name,
+    sendLineNotify(cleanPhone, name,
       \`🫙 心願瓶DIY｜✅ \${name} 您好！已成功登記候位，您的號碼是 \${numStr}。\${waitMsg}輪到您時我們會再通知您 🙏\`);
     document.getElementById('success-num').textContent = numStr;
     document.getElementById('success-sub').textContent = \`已傳送 LINE 通知給 \${name}\`;
