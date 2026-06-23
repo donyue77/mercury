@@ -189,6 +189,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1508,9 +1509,15 @@ async function callNext() {
   } catch(e) { showToast('網路錯誤'); }
 }
 
-function repeatCall() {
-  if (!state.A.current) { showToast('尚未開始叫號'); return; }
-  showToast('已重複叫號 ' + fmt(state.A.current));
+async function repeatCall() {
+  const cur = state.A.current;
+  if (!cur) { showToast('尚未開始叫號'); return; }
+  const entry = state.A.lastCalledEntry || null;
+  if (entry) {
+    sendLineNotify(entry.userId, entry.phone, entry.name,
+      \`🫙 心願瓶DIY｜📢 再次提醒 \${entry.name} 您好！請 \${fmt(cur)} 號前往領瓶處，謝謝！\`);
+  }
+  showToast('已重複叫號 ' + fmt(cur));
 }
 
 async function notifyPerson(num) {
@@ -1747,13 +1754,17 @@ async function syncFromServer() {
   } catch(e) {}
 }
 
-async function sendLineNotify(userId, name, message) {
+function getLastCalled() {
+  return state.B.lastCalledEntry || null;
+}
+
+async function sendLineNotify(userId, message) {
   if (!userId || userId === '—') return;
   try {
     await fetch(BACKEND_URL + '/api/line-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, name, message })
+      body: JSON.stringify({ userId, message })
     });
   } catch(e) {}
 }
@@ -1769,21 +1780,27 @@ async function callNext() {
     const data = await res.json();
     if (!data.success) { showToast(data.error || '叫號失敗'); return; }
     const entry = data.called;
-    sendLineNotify(entry.userId, entry.name,
+    sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請至塔羅牌區入座，謝謝！\`);
     await syncFromServer();
     if (state.B.queue.length > 0) {
       const next = state.B.queue[0];
-      sendLineNotify(next.userId, next.name,
+      sendLineNotify(next.userId,
         \`🔮 塔羅牌占卜｜⏰ \${next.name} 您好！您是下一位（\${fmt(next.num)} 號），請提前回到現場準備。\`);
     }
     showToast('已叫號：' + fmt(entry.num));
   } catch(e) { showToast('網路錯誤'); }
 }
 
-function repeatCall() {
-  if (!state.B.current) { showToast('尚未開始叫號'); return; }
-  showToast('已重複叫號 ' + fmt(state.B.current));
+async function repeatCall() {
+  const cur = state.B.current;
+  if (!cur) { showToast('尚未開始叫號'); return; }
+  const entry = getLastCalled();
+  if (entry) {
+    sendLineNotify(entry.userId,
+      \`🔮 塔羅牌占卜｜📢 再次提醒 \${entry.name} 您好！請 \${fmt(cur)} 號前往塔羅牌區入座，謝謝！\`);
+  }
+  showToast('已重複叫號 ' + fmt(cur));
 }
 
 async function notifyPerson(num) {
@@ -1791,7 +1808,7 @@ async function notifyPerson(num) {
   if (!entry) return;
   const pos = state.B.queue.indexOf(entry);
   const est = Math.max(0, Math.ceil((pos + 1) / 2) - 1) * cfg.services.B.minutes || cfg.services.B.minutes;
-  sendLineNotify(entry.userId, entry.name,
+  sendLineNotify(entry.userId,
     \`🔮 塔羅牌占卜｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   showToast('已傳送提醒給 ' + entry.name);
 }
@@ -1821,7 +1838,7 @@ async function noShowCurrent() {
   const data = await res.json();
   await syncFromServer();
   if (data.entry) {
-    sendLineNotify(data.entry.userId, null, data.entry.name,
+    sendLineNotify(data.entry.userId,
       \`🔮 \${svcName}｜\${data.entry.name} 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位。若您仍在現場附近，請留意後續叫號通知；如需取消候位，可回覆「取消候位」或至取號頁面點取消按鈕，感謝您的配合 🙏\`);
   }
   showToast(\`\${numStr} 已重排至末位，已通知客人\`);
