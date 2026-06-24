@@ -371,6 +371,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -466,10 +467,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .loading{text-align:center;padding:40px;color:var(--text3);font-size:14px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
+.loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--sB);border-radius:50%;animation:spin 1s linear infinite}
+.loading-title{font-size:16px;font-weight:600;color:var(--text)}
+.loading-sub{font-size:13px;color:var(--text3);text-align:center;line-height:1.6;max-width:240px}
+.loading-dot{display:inline-block;animation:pulse 1.5s infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 </style>
 </head>
 <body>
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-title">系統啟動中</div>
+  <div class="loading-sub">伺服器喚醒中，請稍候片刻<br/>通常需要 30～50 秒</div>
+</div>
 <div class="app">
   <div class="topbar">
     <div class="live-dot"></div>
@@ -654,15 +666,32 @@ function setStatusSvc(s) {
   renderStatus();
 }
 
+let serverReady = false;
+let loadingTimer = null;
+
 async function syncFromServer() {
   try {
     const res = await fetch(BACKEND_URL + '/api/state');
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
+    if (!serverReady) {
+      serverReady = true;
+      if (loadingTimer) clearTimeout(loadingTimer);
+      const overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
     render();
-  } catch(e) {}
+  } catch(e) {
+    // Server not ready yet, keep showing loading
+  }
 }
+
+// Show loading overlay if server doesn't respond in 2 seconds
+loadingTimer = setTimeout(() => {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay && !serverReady) overlay.style.display = 'flex';
+}, 2000);
 
 async function sendLineNotify(userId, name, message) {
   if (!userId || userId === '—') return;
@@ -1433,6 +1462,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .success-sub{font-size:13px;color:var(--green);text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
+.empty{font-size:13px;color:var(--text3);font-style:italic}
 .party-btn{padding:8px 16px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:transparent;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s}
 .party-btn.active{background:var(--sA);color:#fff;border-color:var(--sA)}
 .party-btn:hover:not(.active){background:var(--bg3)}
@@ -1503,6 +1533,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <span class="stat-label">目前服務號</span>
       <span class="stat-val" id="current">—</span>
     </div>
+  </div>
+
+  <!-- 候位名單確認 -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px">目前候位名單</div>
+    <div id="checkout-queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
   <!-- 取消候位 -->
