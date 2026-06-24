@@ -290,6 +290,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2157,21 +2158,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
   </div>
 
-  <!-- 另一個包廂 + 共用等候人數 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-    <div class="card" style="padding:12px;text-align:center">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">🌙 月亮包廂 服務中</div>
-      <div style="font-size:28px;font-weight:600;color:var(--text)" id="other-cabin-cur">—</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">共用等候人數</div>
-      <div style="font-size:28px;font-weight:600;color:var(--text)" id="other-cabin-wait">0</div>
+  <!-- 對方包廂目前服務號 -->
+  <div class="card" style="padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+    <div style="font-size:24px">🌙</div>
+    <div style="flex:1">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:2px">月亮包廂 目前服務</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text)" id="other-cabin-cur">—</div>
     </div>
   </div>
 
-  <!-- 候位名單 -->
+  <!-- 共用等候資訊 -->
   <div class="card">
-    <div class="card-title" style="margin-bottom:10px">候位名單</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">共用候位序列</div>
+      <div style="font-size:12px;color:var(--text3)" id="shared-waiting-label">0 人等候</div>
+    </div>
     <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
@@ -2358,11 +2359,12 @@ function render() {
   }).join('');
   list.innerHTML = html || '<span class="empty">目前無人候位</span>';
 
-  // 顯示另一個包廂目前服務號 + 共用等候人數
+  // 對方包廂目前服務號
   const otherCurEl = document.getElementById('other-cabin-cur');
-  const otherWaitEl = document.getElementById('other-cabin-wait');
   if (otherCurEl) otherCurEl.textContent = state.B.current > 0 ? fmt(state.B.current) : '—';
-  if (otherWaitEl) otherWaitEl.textContent = q.length + ' 人';
+  // 共用等候人數標籤
+  const sharedLabel = document.getElementById('shared-waiting-label');
+  if (sharedLabel) sharedLabel.textContent = q.length + ' 人等候';
 }
 
 syncFromServer();
@@ -2459,21 +2461,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
   </div>
 
-  <!-- 另一個包廂 + 共用等候人數 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-    <div class="card" style="padding:12px;text-align:center">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">☀️ 太陽包廂 服務中</div>
-      <div style="font-size:28px;font-weight:600;color:var(--text)" id="other-cabin-cur">—</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">共用等候人數</div>
-      <div style="font-size:28px;font-weight:600;color:var(--text)" id="other-cabin-wait">0</div>
+  <!-- 對方包廂目前服務號 -->
+  <div class="card" style="padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+    <div style="font-size:24px">☀️</div>
+    <div style="flex:1">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:2px">太陽包廂 目前服務</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text)" id="other-cabin-cur">—</div>
     </div>
   </div>
 
-  <!-- 候位名單 -->
+  <!-- 共用等候資訊 -->
   <div class="card">
-    <div class="card-title" style="margin-bottom:10px">候位名單</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin-bottom:0">共用候位序列</div>
+      <div style="font-size:12px;color:var(--text3)" id="shared-waiting-label">0 人等候</div>
+    </div>
     <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
@@ -2660,11 +2662,12 @@ function render() {
   }).join('');
   list.innerHTML = html || '<span class="empty">目前無人候位</span>';
 
-  // 顯示另一個包廂目前服務號 + 共用等候人數
+  // 對方包廂目前服務號
   const otherCurEl = document.getElementById('other-cabin-cur');
-  const otherWaitEl = document.getElementById('other-cabin-wait');
   if (otherCurEl) otherCurEl.textContent = state.B.current > 0 ? fmt(state.B.current) : '—';
-  if (otherWaitEl) otherWaitEl.textContent = q.length + ' 人';
+  // 共用等候人數標籤
+  const sharedLabel = document.getElementById('shared-waiting-label');
+  if (sharedLabel) sharedLabel.textContent = q.length + ' 人等候';
 }
 
 syncFromServer();
