@@ -45,8 +45,8 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
-  // 初始化預設狀態
-  const existing = await pool.query("SELECT key FROM queue_state WHERE key = 'main'");
+  // 初始化或遷移狀態
+  const existing = await pool.query("SELECT key, value FROM queue_state WHERE key = 'main'");
   if (existing.rows.length === 0) {
     const defaultState = {
       state: {
@@ -63,6 +63,26 @@ async function initDB() {
       }
     };
     await pool.query("INSERT INTO queue_state (key, value) VALUES ('main', $1)", [defaultState]);
+  } else {
+    // 遷移：確保 cabins 欄位存在
+    const data = existing.rows[0].value;
+    let updated = false;
+    if (!data.state.B.cabins) {
+      data.state.B.cabins = { sun: { current: 0, lastEntry: null }, moon: { current: 0, lastEntry: null } };
+      updated = true;
+    }
+    if (!data.state.B.cabins.sun) {
+      data.state.B.cabins.sun = { current: 0, lastEntry: null };
+      updated = true;
+    }
+    if (!data.state.B.cabins.moon) {
+      data.state.B.cabins.moon = { current: 0, lastEntry: null };
+      updated = true;
+    }
+    if (updated) {
+      await pool.query("UPDATE queue_state SET value = $1 WHERE key = 'main'", [data]);
+      console.log('DB migrated: cabins field added');
+    }
   }
   console.log('DB initialized');
 }
@@ -295,6 +315,8 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
+
 
 
 
@@ -2329,18 +2351,13 @@ async function callNext() {
 }
 
 async function repeatCall() {
-  const cur = state.B.current;
-  if (!cur) { showToast('尚未開始叫號'); return; }
-  // 只重複自己包廂叫的號
   const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
-  if (myCabinEntry && myCabinEntry.num === cur) {
-    sendLineNotify(myCabinEntry.userId,
-      \`🔮 塔羅牌占卜｜📢 再次提醒 \${myCabinEntry.name} 您好！請 \${fmt(cur)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
-    showToast('已重複叫號 ' + fmt(cur));
-  } else {
-    // 不是本包廂叫的號，提示
-    showToast('此號由另一個包廂叫出，請確認');
-  }
+  // 本包廂從未叫過號
+  if (!myCabinEntry) { showToast('此包廂尚未叫號'); return; }
+  // 重複通知本包廂最後叫出的號
+  sendLineNotify(myCabinEntry.userId,
+    \`🔮 塔羅牌占卜｜📢 再次提醒 \${myCabinEntry.name} 您好！請 \${fmt(myCabinEntry.num)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
+  showToast('已重複叫號 ' + fmt(myCabinEntry.num));
 }
 
 async function noShowCurrent() {
@@ -2651,18 +2668,13 @@ async function callNext() {
 }
 
 async function repeatCall() {
-  const cur = state.B.current;
-  if (!cur) { showToast('尚未開始叫號'); return; }
-  // 只重複自己包廂叫的號
   const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
-  if (myCabinEntry && myCabinEntry.num === cur) {
-    sendLineNotify(myCabinEntry.userId,
-      \`🔮 塔羅牌占卜｜📢 再次提醒 \${myCabinEntry.name} 您好！請 \${fmt(cur)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
-    showToast('已重複叫號 ' + fmt(cur));
-  } else {
-    // 不是本包廂叫的號，提示
-    showToast('此號由另一個包廂叫出，請確認');
-  }
+  // 本包廂從未叫過號
+  if (!myCabinEntry) { showToast('此包廂尚未叫號'); return; }
+  // 重複通知本包廂最後叫出的號
+  sendLineNotify(myCabinEntry.userId,
+    \`🔮 塔羅牌占卜｜📢 再次提醒 \${myCabinEntry.name} 您好！請 \${fmt(myCabinEntry.num)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
+  showToast('已重複叫號 ' + fmt(myCabinEntry.num));
 }
 
 async function noShowCurrent() {
