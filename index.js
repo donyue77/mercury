@@ -381,6 +381,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -897,7 +898,7 @@ async function initLiff() {
 
 syncFromServer();
 initLiff();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>
@@ -1422,7 +1423,7 @@ function renderLog() {
 
 // 初始化
 syncFromServer();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>
@@ -1761,7 +1762,7 @@ async function register() {
 
 
 syncFromServer();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>
@@ -2047,7 +2048,7 @@ function render() {
 }
 
 syncFromServer();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>
@@ -2324,7 +2325,7 @@ function render() {
 }
 
 syncFromServer();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>
@@ -2644,7 +2645,7 @@ function render() {
 }
 
 syncFromServer();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>`); });
@@ -2963,7 +2964,7 @@ function render() {
 }
 
 syncFromServer();
-setInterval(syncFromServer, 4000);
+setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>`); });
