@@ -386,6 +386,9 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1357,59 +1360,39 @@ async function saveSettings() {
 
 // ── 渲染 ──────────────────────────────────────────
 function renderStaff() {
-  const svc = currentStaffSvc;
-  ['A','B'].forEach(s => {
-    const el = document.getElementById('staff-tab-'+s);
-    el.textContent = cfg.services[s].name;
-    el.className = 'svc-tab' + (s===svc ? ' active-'+s : '');
-  });
-  document.getElementById('staff-take-btn').textContent = \`登記 \${cfg.services[svc].name} 候位\`;
-  document.getElementById('staff-register-label').textContent = '結帳後幫客人登記候位';
-  // 塔羅牌（B）不需要手動登記欄位
-  const showRegister = svc === 'A';
-  document.getElementById('staff-register-section').style.display = showRegister ? 'block' : 'none';
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
-  const cur = state[svc].current;
-  const curEl = document.getElementById('staff-cur');
-  curEl.textContent = cur > 0 ? fmt(svc, cur) : '—';
-  curEl.style.color = cur > 0 ? (svc==='A'?'var(--sA)':'var(--sB)') : 'var(--text)';
-
-  document.getElementById('staff-waiting').textContent = state[svc].queue.length;
-  // 今日統計
+  // 今日服務統計
   const sunServed = state.B?.cabins?.sun?.servedToday || 0;
   const moonServed = state.B?.cabins?.moon?.servedToday || 0;
   const aServed = state.A?.servedToday || 0;
   const total = aServed + sunServed + moonServed;
-  const stA = document.getElementById('st-served-a');
-  const stSun = document.getElementById('st-served-sun');
-  const stMoon = document.getElementById('st-served-moon');
-  const stTotal = document.getElementById('st-served-total');
-  if (stA) stA.textContent = aServed + ' 人';
-  if (stSun) stSun.textContent = sunServed + ' 人';
-  if (stMoon) stMoon.textContent = moonServed + ' 人';
-  if (stTotal) stTotal.textContent = total + ' 人';
-  document.getElementById('staff-last').textContent = state[svc].lastIssued > 0 ? fmt(svc, state[svc].lastIssued) : '—';
+  setEl('st-served-a', aServed + ' 人');
+  setEl('st-served-sun', sunServed + ' 人');
+  setEl('st-served-moon', moonServed + ' 人');
+  setEl('st-served-total', total + ' 人');
 
-  const list = document.getElementById('staff-list');
-  const q = state[svc].queue;
-  if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
-  list.innerHTML = q.map((entry, i) => {
-    const concurrentEst = svc === 'A' ? 5 : 2;
-    const est = Math.max(0, Math.ceil((i + 1) / concurrent) - 1) * cfg.services[svc].minutes || cfg.services[svc].minutes;
-    return \`<div class="staff-entry">
-      <div class="staff-num color-\${svc}">\${fmt(svc, entry.num)}</div>
-      <div class="staff-info">
-        <div class="staff-name">\${entry.name}</div>
-        <div class="staff-meta">\${entry.phone||''}｜\${i===0?'下一位':'約 '+est+' 分鐘'}</div>
-      </div>
-      <div class="staff-btns">
-        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:var(--amber-bg)"
-          onclick="notifyPerson('\${svc}',\${entry.num})">提醒</button>
-        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-b)"
-          onclick="cancelPerson('\${svc}',\${entry.num})">取消</button>
-      </div>
-    </div>\`;
-  }).join('');
+  // 心願瓶狀況
+  const aq = state.A?.queue || [];
+  const aCur = state.A?.current || 0;
+  const aMins = cfg.services?.A?.minutes || 12;
+  const aTotalCap = aq.reduce((s, e) => s + (e.partySize || 1), 0);
+  const aEst = aq.length > 0 ? Math.max(0, Math.ceil(aTotalCap / 5) - 1) * aMins : 0;
+  setEl('wb-cur', aCur > 0 ? (cfg.services?.A?.prefix || 'A') + String(aCur).padStart(3,'0') : '—');
+  setEl('wb-waiting', aq.length + ' 組' + (aTotalCap > aq.length ? '（共 ' + aTotalCap + ' 人）' : ''));
+  setEl('wb-est', aq.length > 0 ? (aEst > 0 ? '約 ' + aEst + ' 分鐘' : '即將輪到') : '—');
+
+  // 塔羅牌狀況
+  const bq = state.B?.queue || [];
+  const bMins = cfg.services?.B?.minutes || 15;
+  const bEst = bq.length > 0 ? Math.max(0, Math.ceil(bq.length / 2) - 1) * bMins : 0;
+  const sunCur = state.B?.cabins?.sun?.current || 0;
+  const moonCur = state.B?.cabins?.moon?.current || 0;
+  const bPrefix = cfg.services?.B?.prefix || 'T';
+  setEl('sun-cur-staff', sunCur > 0 ? bPrefix + String(sunCur).padStart(3,'0') : '—');
+  setEl('moon-cur-staff', moonCur > 0 ? bPrefix + String(moonCur).padStart(3,'0') : '—');
+  setEl('tarot-waiting', bq.length + ' 人');
+  setEl('tarot-est', bq.length > 0 ? (bEst > 0 ? '約 ' + bEst + ' 分鐘' : '即將輪到') : '—');
 }
 
 function renderLog() {
@@ -1855,6 +1838,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div style="padding:16px 0 12px">
       <div class="big-num" id="cur-num">—</div>
       <div class="big-sub" id="cur-label">等待開始</div>
+      <div id="cur-name" style="display:none;font-size:14px;font-weight:600;color:var(--text);margin-top:6px"></div>
     </div>
     <button class="btn btn-primary" onclick="callNext()">叫下一號 →</button>
     <button class="btn" onclick="repeatCall()">重複叫號</button>
@@ -1874,10 +1858,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
-  <!-- 重置 -->
-  <div style="padding:14px 14px 0">
-    <button class="btn" style="color:var(--red);border-color:var(--red-b);font-size:13px" onclick="resetSvc()">重置今日號碼</button>
-  </div>
+
 </div>
 <div class="toast" id="toast"></div>
 
@@ -1980,16 +1961,7 @@ async function noShowCurrent() {
   showToast(\`\${numStr} 已順延至第 2 位，已通知客人\`);
 }
 
-async function resetSvc() {
-  if (!confirm('確定重置今日心願瓶所有號碼？')) return;
-  await fetch(BACKEND_URL + '/api/reset', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ svc: 'A' })
-  });
-  await syncFromServer();
-  showToast('已重置');
-}
+
 
 function render() {
   const q = state.A.queue;
@@ -1997,7 +1969,17 @@ function render() {
   const mins = cfg.services.A.minutes;
   const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
-  document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號前往領瓶\` : '等待開始';
+  if (cur > 0) {
+    const calledEntry = state.A.lastCalledEntry;
+    const nameLabel = calledEntry ? calledEntry.name : '';
+    const sizeLabel = calledEntry && calledEntry.partySize > 1 ? \`（\${calledEntry.partySize} 人）\` : '';
+    document.getElementById('cur-label').textContent = \`請 \${fmt(cur)} 號前往領瓶\`;
+    document.getElementById('cur-name').textContent = nameLabel + sizeLabel;
+    document.getElementById('cur-name').style.display = nameLabel ? 'block' : 'none';
+  } else {
+    document.getElementById('cur-label').textContent = '等待開始';
+    document.getElementById('cur-name').style.display = 'none';
+  }
   document.getElementById('served').textContent = state.A.servedToday;
   document.getElementById('waiting').textContent = q.length + (totalCap > q.length ? \` (共 \${totalCap} 人)\` : '');
   const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
