@@ -379,6 +379,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1017,54 +1018,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <button onclick="doLogout()" style="font-size:12px;color:var(--text3);border:none;background:transparent;cursor:pointer;padding:4px 8px">登出</button>
     </div>
     <div class="tabs">
-      <button class="tab active" onclick="goTab('queue')" id="tab-queue">叫號</button>
+      <button class="tab active" onclick="goTab('queue')" id="tab-queue">總覽</button>
       <button class="tab" onclick="goTab('log')" id="tab-log">記錄</button>
       <button class="tab" onclick="goTab('settings')" id="tab-settings">設定</button>
     </div>
 
     <!-- 叫號 -->
     <div class="panel active" id="panel-queue">
-      <div class="svc-tabs">
-        <button class="svc-tab active-A" id="staff-tab-A" onclick="setStaffSvc('A')"></button>
-        <button class="svc-tab" id="staff-tab-B" onclick="setStaffSvc('B')"></button>
-      </div>
-
-      <div class="card">
-        <div class="card-title">叫號操作</div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div style="text-align:center;min-width:80px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:2px">目前服務</div>
-            <div style="font-size:36px;font-weight:500;line-height:1" id="staff-cur">—</div>
-          </div>
-          <div style="flex:1">
-            <button class="btn btn-primary" style="margin-bottom:8px" onclick="callNext()">叫下一號 →</button>
-            <button class="btn" style="margin-bottom:0" onclick="repeatCall()">重複叫號</button>
-          </div>
-        </div>
-        <div id="staff-register-section">
-          <div class="divider" style="margin:0 0 12px"></div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:8px" id="staff-register-label">結帳後幫客人登記候位</div>
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <input type="text" id="staff-inp-name" placeholder="客人姓名" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
-            <input type="tel" id="staff-inp-phone" placeholder="09xxxxxxxx" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
-          </div>
-          <button class="btn btn-A" id="staff-take-btn" onclick="staffTakeNumber()" style="margin-bottom:0"></button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title" style="margin-bottom:10px">候位名單</div>
-        <div id="staff-list"><span class="empty">目前無人候位</span></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">統計</div>
-        <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="staff-waiting">0</span></div>
-        <div class="stat-row" style="border:none"><span class="stat-label">最後發號</span><span class="stat-val" id="staff-last">—</span></div>
-      </div>
 
       <!-- 今日服務統計 -->
-      <div class="card">
+      <div class="card" style="margin-top:14px">
         <div class="card-title">今日服務統計</div>
         <div class="stat-row">
           <span class="stat-label">🫙 心願瓶DIY</span>
@@ -1084,8 +1047,55 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         </div>
       </div>
 
-      <button class="btn btn-danger" onclick="resetSvc()" style="margin-bottom:6px">重置此服務今日號碼</button>
-      <button class="btn btn-danger" onclick="resetAll()" style="opacity:.7">重置所有服務</button>
+      <!-- 心願瓶狀況 -->
+      <div class="card">
+        <div class="card-title">🫙 心願瓶DIY 狀況</div>
+        <div class="stat-row">
+          <span class="stat-label">目前服務號</span>
+          <span class="stat-val" id="wb-cur">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">等候組數</span>
+          <span class="stat-val" id="wb-waiting">0</span>
+        </div>
+        <div class="stat-row" style="border:none">
+          <span class="stat-label">預估等待</span>
+          <span class="stat-val" id="wb-est">—</span>
+        </div>
+      </div>
+
+      <!-- 塔羅牌狀況 -->
+      <div class="card">
+        <div class="card-title">🔮 塔羅牌占卜 狀況</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">☀️ 太陽包廂</div>
+            <div style="font-size:22px;font-weight:600;color:var(--text)" id="sun-cur-staff">—</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">🌙 月亮包廂</div>
+            <div style="font-size:22px;font-weight:600;color:var(--text)" id="moon-cur-staff">—</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">等候人數</span>
+          <span class="stat-val" id="tarot-waiting">0</span>
+        </div>
+        <div class="stat-row" style="border:none">
+          <span class="stat-label">預估等待</span>
+          <span class="stat-val" id="tarot-est">—</span>
+        </div>
+      </div>
+
+      <!-- 重置 -->
+      <div class="card">
+        <div class="card-title">重置號碼</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">每日活動結束後或重新開始前使用</div>
+        <button class="btn" style="color:var(--red);border-color:var(--red-b);margin-bottom:8px;font-size:13px" onclick="resetWishbottle()">🫙 重置心願瓶號碼</button>
+        <button class="btn" style="color:var(--red);border-color:var(--red-b);margin-bottom:8px;font-size:13px" onclick="resetTarot()">🔮 重置塔羅牌號碼</button>
+        <button class="btn" style="color:var(--red);border-color:var(--red-b);font-size:13px;opacity:.7" onclick="resetAll()">重置全部</button>
+      </div>
+
     </div>
 
     <!-- 記錄 -->
