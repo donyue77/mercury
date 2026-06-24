@@ -385,6 +385,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1708,22 +1709,31 @@ function renderStatus() {
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '無需等候';
   document.getElementById('current').textContent = state.A.current > 0 ? fmt(state.A.current) : '—';
 
-  // 候位名單
+  // 候位名單（最多10組，含取消按鈕）
   const list = document.getElementById('checkout-queue-list');
   if (!list) return;
   if (q.length === 0) { list.innerHTML = '<span style="font-size:13px;color:var(--text3);font-style:italic">目前無人候位</span>'; return; }
-  list.innerHTML = q.map((entry, i) => {
+  const displayQ = q.slice(0, 10);
+  const remaining = q.length - 10;
+  let listHtml = displayQ.map((entry, i) => {
     const capSoFarQ = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
     const estEntry = Math.max(0, Math.ceil(capSoFarQ / 5) - 1) * mins || mins;
     const posLabel = i === 0 ? '下一組' : '第 ' + (i + 1) + ' 組，約 ' + estEntry + ' 分鐘';
-    const partyLabel = entry.partySize > 1 ? ' (' + entry.partySize + ' 人)' : '';
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)">'
-      + '<div style="font-size:14px;font-weight:500;min-width:52px;color:var(--sA)">' + fmt(entry.num) + '</div>'
-      + '<div style="flex:1">'
-      + '<div style="font-size:13px;font-weight:500;color:var(--text)">' + entry.name + partyLabel + '</div>'
-      + '<div style="font-size:11px;color:var(--text3);margin-top:1px">' + (entry.phone || '') + '｜' + posLabel + '</div>'
-      + '</div></div>';
+    const sizeLabel = (entry.partySize || 1) + ' 人';
+    const isLast = i === displayQ.length - 1 && remaining === 0;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;' + (isLast ? '' : 'border-bottom:0.5px solid var(--border)') + '">'
+      + '<div style="font-size:14px;font-weight:600;min-width:48px;color:var(--sA)">' + fmt(entry.num) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--text)">' + entry.name + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + sizeLabel + '｜' + posLabel + '</div>'
+      + '</div>'
+      + '<button onclick="cancelEntry(' + entry.num + ')" style="flex-shrink:0;padding:5px 10px;font-size:11px;font-weight:600;color:var(--red);border:0.5px solid var(--red-b);border-radius:var(--r-sm);background:transparent;cursor:pointer;font-family:inherit">取消</button>'
+      + '</div>';
   }).join('');
+  if (remaining > 0) {
+    listHtml += '<div style="padding:8px 0 0;border-top:0.5px solid var(--border);margin-top:4px;font-size:12px;color:var(--text3)">還有 ' + remaining + ' 組，請輸入手機號碼取消</div>';
+  }
+  list.innerHTML = listHtml;
 }
 
 async function register() {
@@ -1949,17 +1959,7 @@ async function notifyPerson(num) {
   showToast('已傳送提醒給 ' + entry.name);
 }
 
-async function cancelPerson(num) {
-  const entry = state.A.queue.find(q => q.num === num);
-  if (!entry || !confirm(\`確定取消 \${fmt(num)} 號（\${entry.name}）？\`)) return;
-  await fetch(BACKEND_URL + '/api/cancel', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ svc: 'A', num })
-  });
-  await syncFromServer();
-  showToast('已取消候位');
-}
+
 
 async function noShowCurrent() {
   const num = state.A.current;
@@ -2039,8 +2039,6 @@ function render() {
       <div class="staff-btns">
         <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:var(--amber-bg)"
           onclick="notifyPerson(\${entry.num})">提醒</button>
-        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-b)"
-          onclick="cancelPerson(\${entry.num})">取消</button>
       </div>
     </div>\`;
   }).join('');
