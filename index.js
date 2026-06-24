@@ -294,6 +294,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2177,9 +2178,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
   </div>
 
-  <!-- 共用候位序列 -->
+  <!-- 候位即時動態 -->
   <div class="card">
-    <div class="card-title">共用候位序列</div>
+    <div class="card-title">候位即時動態</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
@@ -2504,9 +2505,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
   </div>
 
-  <!-- 共用候位序列 -->
+  <!-- 候位即時動態 -->
   <div class="card">
-    <div class="card-title">共用候位序列</div>
+    <div class="card-title">候位即時動態</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
