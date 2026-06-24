@@ -249,6 +249,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -565,7 +566,7 @@ async function leaveQueue() {
   const numStr = myTicket.svc === 'B'
     ? cfg.services.B.prefix + String(myTicket.num).padStart(3,'0')
     : cfg.services.A.prefix + String(myTicket.num).padStart(3,'0');
-  if (!confirm(\`確定要取消 \${svcName} \${numStr} 號的候位嗎？\\n取消後無法恢復。\`)) return;
+  if (!confirm(\`確定要取消 \${svcName} \${numStr} 號的候位嗎？\n取消後無法恢復。\`)) return;
   try {
     await fetch(BACKEND_URL + '/api/cancel', {
       method: 'POST',
@@ -585,7 +586,7 @@ async function leaveQueue() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: cancelUserId,
-          message: \`✅ \${cancelName} 您好！您的\${svcName} \${numStr} 號候位已成功取消。\\n\\n如有需要歡迎重新取號，感謝您！\`
+          message: \`✅ \${cancelName} 您好！您的\${svcName} \${numStr} 號候位已成功取消。\n\n如有需要歡迎重新取號，感謝您！\`
         })
       }).catch(()=>{});
     }
@@ -1054,7 +1055,7 @@ async function staffTakeNumber() {
   const name = document.getElementById('staff-inp-name').value.trim();
   const phone = document.getElementById('staff-inp-phone').value.trim();
   if (!name) { showToast('請輸入客人姓名'); return; }
-  if (!phone || !/^09\\d{8}$/.test(phone)) { showToast('請輸入客人手機號碼'); return; }
+  if (!phone || !/^09\d{8}$/.test(phone)) { showToast('請輸入客人手機號碼'); return; }
   try {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
@@ -2024,6 +2025,567 @@ setInterval(syncFromServer, 4000);
 </body>
 </html>
 `); });
+app.get('/staff/tarot-sun', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>塔羅牌引導｜☀️ 太陽包廂</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f6f5f2;--bg3:#eeede9;
+  --text:#1a1a1a;--text2:#5a5a5a;--text3:#999;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
+  --r:10px;--r-sm:6px;
+  --sB:#6d28d9;--sB-bg:#f5f3ff;--sB-border:#c4b5fd;--sB-text:#3b0764;
+  --green:#3b6d11;--green-bg:#eaf3de;--green-b:#97c459;
+  --amber:#854f0b;--amber-bg:#faeeda;--amber-b:#ef9f27;
+  --red:#a32d2d;--red-bg:#fcebeb;--red-b:#f09595;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+    --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+    --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
+    --sB:#a78bfa;--sB-bg:#2e1065;--sB-border:#7c3aed;--sB-text:#ddd6fe;
+    --green:#c0dd97;--green-bg:#173404;--green-b:#3b6d11;
+    --amber:#fac775;--amber-bg:#412402;--amber-b:#854f0b;
+    --red:#f7c1c1;--red-bg:#501313;--red-b:#a32d2d;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding-bottom:48px}
+.topbar{background:var(--bg);border-bottom:0.5px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20}
+.topbar-title{font-size:15px;font-weight:500;flex:1}
+.topbar-sub{font-size:12px;color:var(--text3)}
+.live-dot{width:7px;height:7px;background:#639922;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:16px;margin:14px 14px 0}
+.card-title{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+.big-num{font-size:80px;font-weight:500;line-height:1;letter-spacing:-2px;text-align:center;color:var(--sB)}
+.big-sub{font-size:12px;color:var(--text3);text-align:center;margin-top:6px}
+.btn{display:flex;align-items:center;justify-content:center;padding:14px 18px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:transparent;font-size:15px;font-weight:500;color:var(--text);cursor:pointer;font-family:inherit;transition:all .15s;width:100%;margin-bottom:8px}
+.btn:last-child{margin-bottom:0}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--sB);color:#fff;border-color:var(--sB)}
+.btn-primary:hover{opacity:.9}
+.btn-sm{padding:6px 12px;font-size:12px;width:auto;margin-bottom:0}
+.staff-entry{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border)}
+.staff-entry:last-child{border-bottom:none}
+.staff-num{font-size:15px;font-weight:500;min-width:52px;color:var(--sB)}
+.staff-info{flex:1;min-width:0}
+.staff-name{font-size:13px;font-weight:500;color:var(--text)}
+.staff-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.staff-btns{display:flex;gap:5px;flex-shrink:0}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border)}
+.stat-row:last-child{border-bottom:none}
+.stat-label{font-size:13px;color:var(--text2)}
+.stat-val{font-size:14px;font-weight:500;color:var(--text)}
+.empty{font-size:13px;color:var(--text3);font-style:italic}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div style="background:#faeeda;border-bottom:2px solid #ef9f27;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;color:#854f0b">
+    ☀️ 太陽包廂
+  </div>
+  <div class="topbar">
+    <div class="live-dot"></div>
+    <div class="topbar-title">🔮 塔羅牌引導</div>
+    <div class="topbar-sub">☀️ 太陽包廂</div>
+  </div>
+
+  <!-- 目前叫號 -->
+  <div class="card">
+    <div style="padding:16px 0 12px">
+      <div class="big-num" id="cur-num">—</div>
+      <div class="big-sub" id="cur-label">等待開始</div>
+    </div>
+    <button class="btn btn-primary" onclick="callNext()">叫下一號 →</button>
+    <button class="btn" onclick="repeatCall()">重複叫號</button>
+  </div>
+
+  <!-- 統計 -->
+  <div class="card">
+    <div class="card-title">今日狀況</div>
+    <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="waiting">0</span></div>
+    <div class="stat-row"><span class="stat-label">今日已服務</span><span class="stat-val" id="served">0</span></div>
+    <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
+  </div>
+
+  <!-- 候位名單 -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px">候位名單</div>
+    <div id="queue-list"><span class="empty">目前無人候位</span></div>
+  </div>
+
+  <!-- 重置 -->
+  <div style="padding:14px 14px 0">
+    <button class="btn" style="color:var(--red);border-color:var(--red-b);font-size:13px" onclick="resetSvc()">重置今日號碼</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BACKEND_URL = 'https://mercury-gcac.onrender.com';
+let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 20 } } };
+let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0 } };
+
+function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+async function syncFromServer() {
+  try {
+    const res = await fetch(BACKEND_URL + '/api/state');
+    const data = await res.json();
+    if (data.state) state = data.state;
+    if (data.cfg) cfg = data.cfg;
+    render();
+  } catch(e) {}
+}
+
+function getLastCalled() {
+  return state.B.lastCalledEntry || null;
+}
+
+async function sendLineNotify(userId, message) {
+  if (!userId || userId === '—') return;
+  try {
+    await fetch(BACKEND_URL + '/api/line-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, message })
+    });
+  } catch(e) {}
+}
+
+async function callNext() {
+  if (state.B.queue.length === 0) { showToast('目前無人候位'); return; }
+  try {
+    const res = await fetch(BACKEND_URL + '/api/call-next', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc: 'B', cabin: 'sun' })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast(data.error || '叫號失敗'); return; }
+    const entry = data.called;
+    sendLineNotify(entry.userId,
+      \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 ☀️ 太陽包廂 入座，謝謝！\`);
+    await syncFromServer();
+    if (state.B.queue.length > 0) {
+      const next = state.B.queue[0];
+      sendLineNotify(next.userId,
+        \`🔮 塔羅牌占卜｜⏰ \${next.name} 您好！您是下一位（\${fmt(next.num)} 號），請提前回到現場準備。\`);
+    }
+    showToast('已叫號：' + fmt(entry.num));
+  } catch(e) { showToast('網路錯誤'); }
+}
+
+async function repeatCall() {
+  const cur = state.B.current;
+  if (!cur) { showToast('尚未開始叫號'); return; }
+  const entry = getLastCalled();
+  if (entry) {
+    sendLineNotify(entry.userId,
+      \`🔮 塔羅牌占卜｜📢 再次提醒 \${entry.name} 您好！請 \${fmt(cur)} 號前往 ☀️ 太陽包廂 入座，謝謝！\`);
+  }
+  showToast('已重複叫號 ' + fmt(cur));
+}
+
+async function notifyPerson(num) {
+  const entry = state.B.queue.find(q => q.num === num);
+  if (!entry) return;
+  const pos = state.B.queue.indexOf(entry);
+  const est = Math.max(0, Math.ceil((pos + 1) / 2) - 1) * cfg.services.B.minutes || cfg.services.B.minutes;
+  sendLineNotify(entry.userId,
+    \`🔮 塔羅牌占卜｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
+  showToast('已傳送提醒給 ' + entry.name);
+}
+
+async function cancelPerson(num) {
+  const entry = state.B.queue.find(q => q.num === num);
+  if (!entry || !confirm(\`確定取消 \${fmt(num)} 號（\${entry.name}）？\`)) return;
+  await fetch(BACKEND_URL + '/api/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B', num })
+  });
+  await syncFromServer();
+  showToast('已取消候位');
+}
+
+async function noShowCurrent() {
+  const num = state.B.current;
+  if (!num) return;
+  const numStr = fmt(num);
+  const svcName = cfg.services.B.name;
+  const res = await fetch(BACKEND_URL + '/api/noshow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B', num, requeue: true })
+  });
+  const data = await res.json();
+  await syncFromServer();
+  if (data.entry) {
+    sendLineNotify(data.entry.userId,
+      \`🔮 \${svcName}｜\${data.entry.name} 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位。若您仍在現場附近，請留意後續叫號通知；如需取消候位，可至取號頁面點取消按鈕，感謝您的配合 🙏\`);
+  }
+  showToast(\`\${numStr} 已重排至末位，已通知客人\`);
+}
+
+async function resetSvc() {
+  if (!confirm('確定重置今日塔羅牌所有號碼？')) return;
+  await fetch(BACKEND_URL + '/api/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B' })
+  });
+  await syncFromServer();
+  showToast('已重置');
+}
+
+function render() {
+  const q = state.B.queue;
+  const cur = state.B.current;
+  const mins = cfg.services.B.minutes;
+  document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
+  document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
+  document.getElementById('waiting').textContent = q.length;
+  document.getElementById('served').textContent = state.B.servedToday;
+  const estB = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
+  document.getElementById('est').textContent = q.length > 0 ? (estB > 0 ? '約 ' + estB + ' 分鐘' : '即將輪到') : '—';
+
+  const list = document.getElementById('queue-list');
+  const calledNum = state.B.current;
+  let html = '';
+  if (calledNum > 0 && !q.find(e => e.num === calledNum)) {
+    html += \`<div class="staff-entry" style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b)">
+      <div class="staff-num" style="color:var(--amber)">\${fmt(calledNum)}</div>
+      <div class="staff-info">
+        <div class="staff-name" style="color:var(--amber)">剛剛叫號，等待中</div>
+        <div class="staff-meta">若客人未到場可標記</div>
+      </div>
+      <div class="staff-btns">
+        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:#fff"
+          onclick="noShowCurrent()">未到場</button>
+      </div>
+    </div>\`;
+  }
+  if (q.length === 0 && !calledNum) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
+  html += q.map((entry, i) => {
+    const est = Math.max(0, Math.ceil((i + 1) / 2) - 1) * mins || mins;
+    return \`<div class="staff-entry">
+      <div class="staff-num">\${fmt(entry.num)}</div>
+      <div class="staff-info">
+        <div class="staff-name">\${entry.name}</div>
+        <div class="staff-meta">\${i === 0 ? '下一位' : '約 ' + est + ' 分鐘'}</div>
+      </div>
+      <div class="staff-btns">
+        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:var(--amber-bg)"
+          onclick="notifyPerson(\${entry.num})">提醒</button>
+        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-b)"
+          onclick="cancelPerson(\${entry.num})">取消</button>
+      </div>
+    </div>\`;
+  }).join('');
+  list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+}
+
+syncFromServer();
+setInterval(syncFromServer, 4000);
+</script>
+</body>
+</html>
+`); });
+app.get('/staff/tarot-moon', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>塔羅牌引導｜🌙 月亮包廂</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f6f5f2;--bg3:#eeede9;
+  --text:#1a1a1a;--text2:#5a5a5a;--text3:#999;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
+  --r:10px;--r-sm:6px;
+  --sB:#6d28d9;--sB-bg:#f5f3ff;--sB-border:#c4b5fd;--sB-text:#3b0764;
+  --green:#3b6d11;--green-bg:#eaf3de;--green-b:#97c459;
+  --amber:#854f0b;--amber-bg:#faeeda;--amber-b:#ef9f27;
+  --red:#a32d2d;--red-bg:#fcebeb;--red-b:#f09595;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+    --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+    --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
+    --sB:#a78bfa;--sB-bg:#2e1065;--sB-border:#7c3aed;--sB-text:#ddd6fe;
+    --green:#c0dd97;--green-bg:#173404;--green-b:#3b6d11;
+    --amber:#fac775;--amber-bg:#412402;--amber-b:#854f0b;
+    --red:#f7c1c1;--red-bg:#501313;--red-b:#a32d2d;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding-bottom:48px}
+.topbar{background:var(--bg);border-bottom:0.5px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20}
+.topbar-title{font-size:15px;font-weight:500;flex:1}
+.topbar-sub{font-size:12px;color:var(--text3)}
+.live-dot{width:7px;height:7px;background:#639922;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:16px;margin:14px 14px 0}
+.card-title{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+.big-num{font-size:80px;font-weight:500;line-height:1;letter-spacing:-2px;text-align:center;color:var(--sB)}
+.big-sub{font-size:12px;color:var(--text3);text-align:center;margin-top:6px}
+.btn{display:flex;align-items:center;justify-content:center;padding:14px 18px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:transparent;font-size:15px;font-weight:500;color:var(--text);cursor:pointer;font-family:inherit;transition:all .15s;width:100%;margin-bottom:8px}
+.btn:last-child{margin-bottom:0}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--sB);color:#fff;border-color:var(--sB)}
+.btn-primary:hover{opacity:.9}
+.btn-sm{padding:6px 12px;font-size:12px;width:auto;margin-bottom:0}
+.staff-entry{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border)}
+.staff-entry:last-child{border-bottom:none}
+.staff-num{font-size:15px;font-weight:500;min-width:52px;color:var(--sB)}
+.staff-info{flex:1;min-width:0}
+.staff-name{font-size:13px;font-weight:500;color:var(--text)}
+.staff-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.staff-btns{display:flex;gap:5px;flex-shrink:0}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border)}
+.stat-row:last-child{border-bottom:none}
+.stat-label{font-size:13px;color:var(--text2)}
+.stat-val{font-size:14px;font-weight:500;color:var(--text)}
+.empty{font-size:13px;color:var(--text3);font-style:italic}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div style="background:#eef2ff;border-bottom:2px solid #a5b4fc;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;color:#3b5bdb">
+    🌙 月亮包廂
+  </div>
+  <div class="topbar">
+    <div class="live-dot"></div>
+    <div class="topbar-title">🔮 塔羅牌引導</div>
+    <div class="topbar-sub">🌙 月亮包廂</div>
+  </div>
+
+  <!-- 目前叫號 -->
+  <div class="card">
+    <div style="padding:16px 0 12px">
+      <div class="big-num" id="cur-num">—</div>
+      <div class="big-sub" id="cur-label">等待開始</div>
+    </div>
+    <button class="btn btn-primary" onclick="callNext()">叫下一號 →</button>
+    <button class="btn" onclick="repeatCall()">重複叫號</button>
+  </div>
+
+  <!-- 統計 -->
+  <div class="card">
+    <div class="card-title">今日狀況</div>
+    <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="waiting">0</span></div>
+    <div class="stat-row"><span class="stat-label">今日已服務</span><span class="stat-val" id="served">0</span></div>
+    <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
+  </div>
+
+  <!-- 候位名單 -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px">候位名單</div>
+    <div id="queue-list"><span class="empty">目前無人候位</span></div>
+  </div>
+
+  <!-- 重置 -->
+  <div style="padding:14px 14px 0">
+    <button class="btn" style="color:var(--red);border-color:var(--red-b);font-size:13px" onclick="resetSvc()">重置今日號碼</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BACKEND_URL = 'https://mercury-gcac.onrender.com';
+let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 20 } } };
+let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0 } };
+
+function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+async function syncFromServer() {
+  try {
+    const res = await fetch(BACKEND_URL + '/api/state');
+    const data = await res.json();
+    if (data.state) state = data.state;
+    if (data.cfg) cfg = data.cfg;
+    render();
+  } catch(e) {}
+}
+
+function getLastCalled() {
+  return state.B.lastCalledEntry || null;
+}
+
+async function sendLineNotify(userId, message) {
+  if (!userId || userId === '—') return;
+  try {
+    await fetch(BACKEND_URL + '/api/line-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, message })
+    });
+  } catch(e) {}
+}
+
+async function callNext() {
+  if (state.B.queue.length === 0) { showToast('目前無人候位'); return; }
+  try {
+    const res = await fetch(BACKEND_URL + '/api/call-next', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc: 'B', cabin: 'moon' })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast(data.error || '叫號失敗'); return; }
+    const entry = data.called;
+    sendLineNotify(entry.userId,
+      \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 🌙 月亮包廂 入座，謝謝！\`);
+    await syncFromServer();
+    if (state.B.queue.length > 0) {
+      const next = state.B.queue[0];
+      sendLineNotify(next.userId,
+        \`🔮 塔羅牌占卜｜⏰ \${next.name} 您好！您是下一位（\${fmt(next.num)} 號），請提前回到現場準備。\`);
+    }
+    showToast('已叫號：' + fmt(entry.num));
+  } catch(e) { showToast('網路錯誤'); }
+}
+
+async function repeatCall() {
+  const cur = state.B.current;
+  if (!cur) { showToast('尚未開始叫號'); return; }
+  const entry = getLastCalled();
+  if (entry) {
+    sendLineNotify(entry.userId,
+      \`🔮 塔羅牌占卜｜📢 再次提醒 \${entry.name} 您好！請 \${fmt(cur)} 號前往 🌙 月亮包廂 入座，謝謝！\`);
+  }
+  showToast('已重複叫號 ' + fmt(cur));
+}
+
+async function notifyPerson(num) {
+  const entry = state.B.queue.find(q => q.num === num);
+  if (!entry) return;
+  const pos = state.B.queue.indexOf(entry);
+  const est = Math.max(0, Math.ceil((pos + 1) / 2) - 1) * cfg.services.B.minutes || cfg.services.B.minutes;
+  sendLineNotify(entry.userId,
+    \`🔮 塔羅牌占卜｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
+  showToast('已傳送提醒給 ' + entry.name);
+}
+
+async function cancelPerson(num) {
+  const entry = state.B.queue.find(q => q.num === num);
+  if (!entry || !confirm(\`確定取消 \${fmt(num)} 號（\${entry.name}）？\`)) return;
+  await fetch(BACKEND_URL + '/api/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B', num })
+  });
+  await syncFromServer();
+  showToast('已取消候位');
+}
+
+async function noShowCurrent() {
+  const num = state.B.current;
+  if (!num) return;
+  const numStr = fmt(num);
+  const svcName = cfg.services.B.name;
+  const res = await fetch(BACKEND_URL + '/api/noshow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B', num, requeue: true })
+  });
+  const data = await res.json();
+  await syncFromServer();
+  if (data.entry) {
+    sendLineNotify(data.entry.userId,
+      \`🔮 \${svcName}｜\${data.entry.name} 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位。若您仍在現場附近，請留意後續叫號通知；如需取消候位，可至取號頁面點取消按鈕，感謝您的配合 🙏\`);
+  }
+  showToast(\`\${numStr} 已重排至末位，已通知客人\`);
+}
+
+async function resetSvc() {
+  if (!confirm('確定重置今日塔羅牌所有號碼？')) return;
+  await fetch(BACKEND_URL + '/api/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B' })
+  });
+  await syncFromServer();
+  showToast('已重置');
+}
+
+function render() {
+  const q = state.B.queue;
+  const cur = state.B.current;
+  const mins = cfg.services.B.minutes;
+  document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
+  document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
+  document.getElementById('waiting').textContent = q.length;
+  document.getElementById('served').textContent = state.B.servedToday;
+  const estB = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
+  document.getElementById('est').textContent = q.length > 0 ? (estB > 0 ? '約 ' + estB + ' 分鐘' : '即將輪到') : '—';
+
+  const list = document.getElementById('queue-list');
+  const calledNum = state.B.current;
+  let html = '';
+  if (calledNum > 0 && !q.find(e => e.num === calledNum)) {
+    html += \`<div class="staff-entry" style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b)">
+      <div class="staff-num" style="color:var(--amber)">\${fmt(calledNum)}</div>
+      <div class="staff-info">
+        <div class="staff-name" style="color:var(--amber)">剛剛叫號，等待中</div>
+        <div class="staff-meta">若客人未到場可標記</div>
+      </div>
+      <div class="staff-btns">
+        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:#fff"
+          onclick="noShowCurrent()">未到場</button>
+      </div>
+    </div>\`;
+  }
+  if (q.length === 0 && !calledNum) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
+  html += q.map((entry, i) => {
+    const est = Math.max(0, Math.ceil((i + 1) / 2) - 1) * mins || mins;
+    return \`<div class="staff-entry">
+      <div class="staff-num">\${fmt(entry.num)}</div>
+      <div class="staff-info">
+        <div class="staff-name">\${entry.name}</div>
+        <div class="staff-meta">\${i === 0 ? '下一位' : '約 ' + est + ' 分鐘'}</div>
+      </div>
+      <div class="staff-btns">
+        <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:var(--amber-bg)"
+          onclick="notifyPerson(\${entry.num})">提醒</button>
+        <button class="btn btn-sm" style="color:var(--red);border-color:var(--red-b)"
+          onclick="cancelPerson(\${entry.num})">取消</button>
+      </div>
+    </div>\`;
+  }).join('');
+  list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+}
+
+syncFromServer();
+setInterval(syncFromServer, 4000);
+</script>
+</body>
+</html>
+`); });
+
 app.get('/', (req, res) => res.send('排隊系統後端運作中'));
 
 const PORT = process.env.PORT || 3000;
