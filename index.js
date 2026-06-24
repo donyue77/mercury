@@ -378,6 +378,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1731,10 +1732,7 @@ async function register() {
     setTimeout(() => document.getElementById('success-banner').classList.remove('show'), 5000);
   } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
-// Enter 鍵送出
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') register();
-});
+
 
 syncFromServer();
 setInterval(syncFromServer, 4000);
