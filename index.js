@@ -125,6 +125,8 @@ async function savePhoneBinding(phone, userId) {
 // ── API ──────────────────────────────────────────
 app.get('/api/state', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
     const data = await getState();
     res.json(data);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -348,6 +350,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -681,7 +684,7 @@ let loadingTimer = null;
 
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
@@ -1200,7 +1203,7 @@ function setStaffSvc(s) { currentStaffSvc = s; renderStaff(); }
 // ── 同步 ──────────────────────────────────────────
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) { cfg = data.cfg; loadSettingsUI(); }
@@ -1677,7 +1680,7 @@ async function cancelByPhone() {
 
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
@@ -1882,7 +1885,7 @@ function showToast(msg) {
 
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
@@ -2168,7 +2171,7 @@ function showToast(msg) {
 
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
@@ -2482,7 +2485,7 @@ function showToast(msg) {
 
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
@@ -2801,7 +2804,7 @@ function showToast(msg) {
 
 async function syncFromServer() {
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
+    const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
     if (data.cfg) cfg = data.cfg;
