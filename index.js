@@ -376,6 +376,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1557,12 +1559,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   <!-- 取消候位 -->
   <div class="card">
     <div class="card-title" style="margin-bottom:12px">取消客人候位</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">客人退款後，請在此取消其候位</div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input type="text" id="cancel-inp-name" placeholder="客人姓名" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
-      <input type="tel" id="cancel-inp-phone" placeholder="手機號碼" style="flex:1;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit"/>
-    </div>
-    <button class="btn" style="color:var(--red);border-color:var(--red-b);margin-bottom:0" onclick="cancelByPhone()">取消此客人的候位</button>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">客人退款後，輸入手機號碼取消候位</div>
+    <input type="tel" id="cancel-inp-phone" placeholder="09xxxxxxxx"
+      oninput="lookupByPhone()"
+      style="width:100%;padding:12px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:16px;font-family:inherit;margin-bottom:8px"/>
+    <div id="cancel-lookup-result" style="display:none;padding:10px 12px;border-radius:var(--r-sm);margin-bottom:8px;font-size:13px"></div>
+    <button class="btn" id="cancel-confirm-btn" style="color:var(--red);border-color:var(--red-b);margin-bottom:0;display:none" onclick="cancelByPhone()">確認取消候位</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -1595,28 +1597,51 @@ function showToast(msg) {
   setTimeout(() => el.classList.remove('show'), 2400);
 }
 
+function lookupByPhone() {
+  const rawPhone = document.getElementById('cancel-inp-phone').value.trim();
+  const phone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
+  const resultEl = document.getElementById('cancel-lookup-result');
+  const btnEl = document.getElementById('cancel-confirm-btn');
+
+  if (phone.length < 10) {
+    resultEl.style.display = 'none';
+    btnEl.style.display = 'none';
+    return;
+  }
+  if (phone.length === 10 && phone.startsWith('09')) {
+    const entry = state.A.queue.find(e => e.phone === phone);
+    if (entry) {
+      resultEl.style.display = 'block';
+      resultEl.style.background = 'var(--red-bg)';
+      resultEl.style.border = '0.5px solid var(--red-b)';
+      resultEl.style.color = 'var(--red)';
+      resultEl.innerHTML = \`找到：<strong>\${entry.name}</strong>　\${fmt(entry.num)} 號　\${entry.partySize || 1} 人\`;
+      btnEl.style.display = 'flex';
+    } else {
+      resultEl.style.display = 'block';
+      resultEl.style.background = 'var(--bg3)';
+      resultEl.style.border = '0.5px solid var(--border)';
+      resultEl.style.color = 'var(--text3)';
+      resultEl.textContent = '查無此號碼的候位記錄';
+      btnEl.style.display = 'none';
+    }
+  }
+}
+
 async function cancelByPhone() {
-  const cancelName = document.getElementById('cancel-inp-name').value.trim();
-  const cancelRawPhone = document.getElementById('cancel-inp-phone').value.trim();
-  const cancelPhone = cancelRawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
-  if (!cancelName && !cancelPhone) { showToast('請輸入姓名或手機號碼'); return; }
+  const rawPhone = document.getElementById('cancel-inp-phone').value.trim();
+  const cancelPhone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
+  const entry = state.A.queue.find(e => e.phone === cancelPhone);
+  if (!entry) { showToast('找不到此客人的候位'); return; }
   try {
-    const res = await fetch(BACKEND_URL + '/api/state');
-    const data = await res.json();
-    const q = data.state.A.queue;
-    const entry = q.find(e =>
-      (cancelPhone && e.phone === cancelPhone) ||
-      (cancelName && e.name === cancelName)
-    );
-    if (!entry) { showToast('找不到此客人的候位'); return; }
-    if (!confirm(\`確定取消 \${entry.name}（\${fmt(entry.num)}）的候位？\`)) return;
     await fetch(BACKEND_URL + '/api/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ svc: 'A', num: entry.num })
     });
-    document.getElementById('cancel-inp-name').value = '';
     document.getElementById('cancel-inp-phone').value = '';
+    document.getElementById('cancel-lookup-result').style.display = 'none';
+    document.getElementById('cancel-confirm-btn').style.display = 'none';
     await syncFromServer();
     showToast(\`已取消 \${entry.name} 的候位\`);
   } catch(e) { showToast('網路錯誤，請再試一次'); }
