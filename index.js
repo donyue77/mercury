@@ -293,6 +293,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2085,27 +2086,24 @@ app.get('/staff/tarot-sun', (req, res) => { res.setHeader('Content-Type', 'text/
   --text:#1a1a1a;--text2:#5a5a5a;--text3:#999;
   --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
   --r:10px;--r-sm:6px;
-  --sB:#6d28d9;--sB-bg:#f5f3ff;--sB-border:#c4b5fd;--sB-text:#3b0764;
+  --sB:#6d28d9;--sB-bg:#f5f3ff;--sB-border:#c4b5fd;
   --amber:#854f0b;--amber-bg:#faeeda;--amber-b:#ef9f27;
   --red:#a32d2d;--red-bg:#fcebeb;--red-b:#f09595;
   --green:#3b6d11;--green-bg:#eaf3de;--green-b:#97c459;
-  --cabin-color:#854f0b;--cabin-bg:#fef3c7;--cabin-border:#f59e0b;
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+    --bg:#1c1c1e;--bg2:#2c2c2e;
     --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
     --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
   }
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh;padding-top:72px}
-
-/* 置頂包廂標示 */
-.cabin-header{position:fixed;top:0;left:0;right:0;z-index:100;background:var(--cabin-bg);border-bottom:3px solid var(--cabin-border);padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.cabin-header{position:fixed;top:0;left:0;right:0;z-index:100;background:#fef3c7;border-bottom:3px solid #f59e0b;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.live-dot{width:7px;height:7px;background:#639922;border-radius:50%;animation:pulse 1.5s infinite;position:absolute;left:16px;top:50%;transform:translateY(-50%)}
 .cabin-emoji{font-size:24px;line-height:1}
-.cabin-title{font-size:18px;font-weight:800;color:var(--cabin-color);letter-spacing:.02em}
-.cabin-sub{font-size:11px;color:var(--cabin-color);opacity:.7;position:absolute;right:16px;top:50%;transform:translateY(-50%);font-weight:500}
-
+.cabin-title{font-size:18px;font-weight:800;color:#854f0b;letter-spacing:.02em}
+.cabin-sub{font-size:11px;color:#854f0b;opacity:.7;position:absolute;right:16px;top:50%;transform:translateY(-50%);font-weight:500}
 .app{max-width:480px;margin:0 auto;padding:14px 14px 60px}
 .card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
 .card-title{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
@@ -2116,33 +2114,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--sB);color:#fff;border-color:var(--sB)}
 .btn-primary:hover{opacity:.9}
-.btn-sm{padding:6px 12px;font-size:12px;width:auto;margin-bottom:0}
+.other-cabin{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.other-cabin-icon{font-size:22px;flex-shrink:0}
+.other-cabin-label{font-size:11px;color:var(--text3);margin-bottom:2px}
+.other-cabin-num{font-size:20px;font-weight:700;color:var(--text)}
 .stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border)}
 .stat-row:last-child{border-bottom:none}
 .stat-label{font-size:13px;color:var(--text2)}
 .stat-val{font-size:14px;font-weight:500;color:var(--text)}
-.staff-entry{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border)}
-.staff-entry:last-child{border-bottom:none}
-.staff-num{font-size:15px;font-weight:500;min-width:52px;color:var(--sB)}
-.staff-info{flex:1;min-width:0}
-.staff-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.staff-meta{font-size:11px;color:var(--text3);margin-top:1px}
-.staff-btns{display:flex;gap:5px;flex-shrink:0}
-.other-cabin{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
-.other-cabin-icon{font-size:22px;flex-shrink:0}
-.other-cabin-info{flex:1}
-.other-cabin-label{font-size:11px;color:var(--text3);margin-bottom:2px}
-.other-cabin-num{font-size:20px;font-weight:700;color:var(--text)}
+.queue-item{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border)}
+.queue-item:last-child{border-bottom:none}
+.queue-num{font-size:15px;font-weight:500;min-width:52px;color:var(--sB)}
+.queue-info{flex:1;min-width:0}
+.queue-name{font-size:13px;font-weight:500;color:var(--text)}
+.queue-meta{font-size:11px;color:var(--text3);margin-top:1px}
 .empty{font-size:13px;color:var(--text3);font-style:italic;padding:4px 0}
+.noshow-bar{background:var(--amber-bg);border:0.5px solid var(--amber-b);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.noshow-btn{color:var(--amber);border:0.5px solid var(--amber-b);background:#fff;border-radius:var(--r-sm);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.auto-notify-bar{background:var(--green-bg);border:0.5px solid var(--green-b);border-radius:var(--r-sm);padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--green);display:none}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.live-dot{width:7px;height:7px;background:#639922;border-radius:50%;animation:pulse 1.5s infinite;position:absolute;left:16px;top:50%;transform:translateY(-50%)}
 </style>
 </head>
 <body>
 
-<!-- 置頂包廂標示 -->
 <div class="cabin-header">
   <div class="live-dot"></div>
   <div class="cabin-emoji">☀️</div>
@@ -2163,10 +2159,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <button class="btn" onclick="repeatCall()" style="margin-bottom:0">重複叫號</button>
   </div>
 
-  <!-- 對方包廂狀態 -->
+  <!-- 對方包廂 -->
   <div class="other-cabin">
     <div class="other-cabin-icon">🌙</div>
-    <div class="other-cabin-info">
+    <div>
       <div class="other-cabin-label">月亮包廂 目前服務</div>
       <div class="other-cabin-num" id="other-cabin-cur">—</div>
     </div>
@@ -2177,17 +2173,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="card-title">今日已服務</div>
     <div class="stat-row" style="border:none">
       <span class="stat-label">已完成服務人數</span>
-      <span class="stat-val" id="served-count">0</span>
+      <span class="stat-val" id="served-count">0 人</span>
     </div>
   </div>
 
-  <!-- 候位資訊 + 名單 -->
+  <!-- 共用候位序列 -->
   <div class="card">
     <div class="card-title">共用候位序列</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
-        <div style="font-size:28px;font-weight:600;color:var(--text)" id="waiting-label">0</div>
+        <div style="font-size:28px;font-weight:600;color:var(--text)" id="waiting-count">0</div>
         <div style="font-size:11px;color:var(--text3)">人</div>
       </div>
       <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
@@ -2196,11 +2192,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         <div style="font-size:11px;color:var(--text3)">分鐘</div>
       </div>
     </div>
+
+    <!-- 自動提醒倒數提示 -->
+    <div class="auto-notify-bar" id="auto-notify-bar">
+      ⏰ <span id="auto-notify-text"></span>
+    </div>
+
+    <!-- 未到場提示 -->
+    <div class="noshow-bar" id="noshow-bar" style="display:none">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--amber)" id="noshow-num-label">—</div>
+        <div style="font-size:11px;color:var(--amber);opacity:.8">叫號後未出現</div>
+      </div>
+      <button class="noshow-btn" onclick="noShowCurrent()">未到場</button>
+    </div>
+
+    <!-- 候位名單（無按鈕）-->
     <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
-  <!-- 重置 -->
-  <button class="btn" style="color:var(--red);border-color:var(--red-b);font-size:13px" onclick="resetSvc()">重置今日號碼</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2209,11 +2219,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 const CABIN_ID = 'sun';
 const CABIN_NAME = '☀️ 太陽包廂';
+const AUTO_NOTIFY_DELAY = 10 * 60 * 1000; // 10 分鐘
 
-let state = {
-  B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null }
-};
+let state = { B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null } };
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
+let autoNotifyTimer = null;
+let autoNotifyTarget = null;
 
 function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
 function showToast(msg) {
@@ -2243,6 +2254,43 @@ async function sendLineNotify(userId, message) {
   } catch(e) {}
 }
 
+function scheduleAutoNotify(nextEntry) {
+  // 取消舊的計時器
+  if (autoNotifyTimer) clearTimeout(autoNotifyTimer);
+  if (!nextEntry) return;
+
+  autoNotifyTarget = nextEntry;
+
+  // 顯示倒數提示
+  const bar = document.getElementById('auto-notify-bar');
+  const text = document.getElementById('auto-notify-text');
+  bar.style.display = 'block';
+  text.textContent = \`將於 10 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
+
+  // 10 分鐘後自動發送
+  autoNotifyTimer = setTimeout(async () => {
+    // 確認這個人還在序列中
+    await syncFromServer();
+    const stillInQueue = state.B.queue.find(e => e.num === nextEntry.num);
+    if (stillInQueue) {
+      sendLineNotify(nextEntry.userId,
+        \`🔮 塔羅牌占卜｜⏰ \${nextEntry.name} 您好！距離您的 \${fmt(nextEntry.num)} 號快輪到了，請回到現場附近準備，感謝您 🙏\`);
+      // 更新提示
+      const bar = document.getElementById('auto-notify-bar');
+      const text = document.getElementById('auto-notify-text');
+      if (bar) {
+        text.textContent = \`已自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）\`;
+        setTimeout(() => { bar.style.display = 'none'; }, 5000);
+      }
+    } else {
+      const bar = document.getElementById('auto-notify-bar');
+      if (bar) bar.style.display = 'none';
+    }
+    autoNotifyTimer = null;
+    autoNotifyTarget = null;
+  }, AUTO_NOTIFY_DELAY);
+}
+
 async function callNext() {
   if (state.B.queue.length === 0) { showToast('目前無人候位'); return; }
   try {
@@ -2257,13 +2305,17 @@ async function callNext() {
       return;
     }
     const entry = data.called;
+    // 通知被叫到的人
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
     await syncFromServer();
+    // 設定 10 分鐘後自動提醒下一位
     if (state.B.queue.length > 0) {
-      const next = state.B.queue[0];
-      sendLineNotify(next.userId,
-        \`🔮 塔羅牌占卜｜⏰ \${next.name} 您好！您是下一位（\${fmt(next.num)} 號），請提前回到現場準備。\`);
+      scheduleAutoNotify(state.B.queue[0]);
+    } else {
+      if (autoNotifyTimer) { clearTimeout(autoNotifyTimer); autoNotifyTimer = null; }
+      const bar = document.getElementById('auto-notify-bar');
+      if (bar) bar.style.display = 'none';
     }
     showToast('已叫號：' + fmt(entry.num));
   } catch(e) { showToast('網路錯誤'); }
@@ -2279,27 +2331,6 @@ async function repeatCall() {
       \`🔮 塔羅牌占卜｜📢 再次提醒 \${entry.name} 您好！請 \${fmt(cur)} 號前往 \${cabinName} 入座，謝謝！\`);
   }
   showToast('已重複叫號 ' + fmt(cur));
-}
-
-async function notifyPerson(num) {
-  const entry = state.B.queue.find(q => q.num === num);
-  if (!entry) return;
-  const pos = state.B.queue.indexOf(entry);
-  const est = Math.max(0, Math.ceil((pos + 1) / 2) - 1) * cfg.services.B.minutes || cfg.services.B.minutes;
-  sendLineNotify(entry.userId,
-    \`🔮 塔羅牌占卜｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
-  showToast('已傳送提醒給 ' + entry.name);
-}
-
-async function cancelPerson(num) {
-  const entry = state.B.queue.find(q => q.num === num);
-  if (!entry || !confirm(\`確定取消 \${fmt(num)} 號（\${entry.name}）？\`)) return;
-  await fetch(BACKEND_URL + '/api/cancel', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ svc: 'B', num })
-  });
-  await syncFromServer();
-  showToast('已取消候位');
 }
 
 async function noShowCurrent() {
@@ -2319,16 +2350,6 @@ async function noShowCurrent() {
   showToast(\`\${numStr} 已重排至末位，已通知客人\`);
 }
 
-async function resetSvc() {
-  if (!confirm('確定重置今日塔羅牌所有號碼？')) return;
-  await fetch(BACKEND_URL + '/api/reset', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ svc: 'B' })
-  });
-  await syncFromServer();
-  showToast('已重置');
-}
-
 function render() {
   const q = state.B.queue;
   const cur = state.B.current;
@@ -2338,53 +2359,40 @@ function render() {
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
   document.getElementById('served-count').textContent = state.B.servedToday + ' 人';
   document.getElementById('other-cabin-cur').textContent = cur > 0 ? fmt(cur) : '—';
-  document.getElementById('waiting-label').textContent = q.length;
+  document.getElementById('waiting-count').textContent = q.length;
   const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
   document.getElementById('est-wait').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將') : '—';
 
   // 未到場提示
-  const list = document.getElementById('queue-list');
-  let html = '';
+  const noshowBar = document.getElementById('noshow-bar');
+  const noshowLabel = document.getElementById('noshow-num-label');
   if (cur > 0 && !q.find(e => e.num === cur)) {
-    html += \`<div style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b);display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:13px;font-weight:500;color:var(--amber)">\${fmt(cur)} 剛剛叫號，等待中</div>
-        <div style="font-size:11px;color:var(--amber);opacity:.8">若客人未到場可標記</div>
-      </div>
-      <button class="btn-sm" style="color:var(--amber);border:0.5px solid var(--amber-b);background:#fff;border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer"
-        onclick="noShowCurrent()">未到場</button>
-    </div>\`;
+    noshowBar.style.display = 'flex';
+    noshowLabel.textContent = \`\${fmt(cur)} 號叫號後未出現\`;
+  } else {
+    noshowBar.style.display = 'none';
   }
 
-  if (q.length === 0 && !html) {
-    list.innerHTML = '<span class="empty">目前無人候位</span>';
-    return;
-  }
-
+  // 候位名單（純顯示，無按鈕）
+  const list = document.getElementById('queue-list');
+  if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
-  html += displayQ.map((entry, i) => {
+  let html = displayQ.map((entry, i) => {
     const est = Math.max(0, Math.ceil((i + 1) / 2) - 1) * mins || mins;
     const posLabel = i === 0 ? '下一位' : \`第 \${i + 1} 位，約 \${est} 分鐘\`;
-    return \`<div class="staff-entry">
-      <div class="staff-num">\${fmt(entry.num)}</div>
-      <div class="staff-info">
-        <div class="staff-name">\${entry.name}</div>
-        <div class="staff-meta">\${posLabel}</div>
-      </div>
-      <div class="staff-btns">
-        <button class="btn-sm" style="color:var(--amber);border:0.5px solid var(--amber-b);background:var(--amber-bg);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer"
-          onclick="notifyPerson(\${entry.num})">提醒</button>
-        <button class="btn-sm" style="color:var(--red);border:0.5px solid var(--red-b);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer"
-          onclick="cancelPerson(\${entry.num})">取消</button>
+    return \`<div class="queue-item">
+      <div class="queue-num">\${fmt(entry.num)}</div>
+      <div class="queue-info">
+        <div class="queue-name">\${entry.name}</div>
+        <div class="queue-meta">\${posLabel}</div>
       </div>
     </div>\`;
   }).join('');
-
   if (remaining > 0) {
     html += \`<div style="text-align:center;padding:8px 0;font-size:12px;color:var(--text3)">還有 \${remaining} 人未顯示</div>\`;
   }
-  list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+  list.innerHTML = html;
 }
 
 syncFromServer();
@@ -2405,27 +2413,24 @@ app.get('/staff/tarot-moon', (req, res) => { res.setHeader('Content-Type', 'text
   --text:#1a1a1a;--text2:#5a5a5a;--text3:#999;
   --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.2);
   --r:10px;--r-sm:6px;
-  --sB:#6d28d9;--sB-bg:#f5f3ff;--sB-border:#c4b5fd;--sB-text:#3b0764;
+  --sB:#6d28d9;--sB-bg:#f5f3ff;--sB-border:#c4b5fd;
   --amber:#854f0b;--amber-bg:#faeeda;--amber-b:#ef9f27;
   --red:#a32d2d;--red-bg:#fcebeb;--red-b:#f09595;
   --green:#3b6d11;--green-bg:#eaf3de;--green-b:#97c459;
-  --cabin-color:#1e40af;--cabin-bg:#dbeafe;--cabin-border:#93c5fd;
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+    --bg:#1c1c1e;--bg2:#2c2c2e;
     --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
     --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
   }
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh;padding-top:72px}
-
-/* 置頂包廂標示 */
-.cabin-header{position:fixed;top:0;left:0;right:0;z-index:100;background:var(--cabin-bg);border-bottom:3px solid var(--cabin-border);padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.cabin-header{position:fixed;top:0;left:0;right:0;z-index:100;background:#dbeafe;border-bottom:3px solid #93c5fd;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.live-dot{width:7px;height:7px;background:#639922;border-radius:50%;animation:pulse 1.5s infinite;position:absolute;left:16px;top:50%;transform:translateY(-50%)}
 .cabin-emoji{font-size:24px;line-height:1}
-.cabin-title{font-size:18px;font-weight:800;color:var(--cabin-color);letter-spacing:.02em}
-.cabin-sub{font-size:11px;color:var(--cabin-color);opacity:.7;position:absolute;right:16px;top:50%;transform:translateY(-50%);font-weight:500}
-
+.cabin-title{font-size:18px;font-weight:800;color:#1e40af;letter-spacing:.02em}
+.cabin-sub{font-size:11px;color:#1e40af;opacity:.7;position:absolute;right:16px;top:50%;transform:translateY(-50%);font-weight:500}
 .app{max-width:480px;margin:0 auto;padding:14px 14px 60px}
 .card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
 .card-title{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
@@ -2436,33 +2441,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--sB);color:#fff;border-color:var(--sB)}
 .btn-primary:hover{opacity:.9}
-.btn-sm{padding:6px 12px;font-size:12px;width:auto;margin-bottom:0}
+.other-cabin{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
+.other-cabin-icon{font-size:22px;flex-shrink:0}
+.other-cabin-label{font-size:11px;color:var(--text3);margin-bottom:2px}
+.other-cabin-num{font-size:20px;font-weight:700;color:var(--text)}
 .stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border)}
 .stat-row:last-child{border-bottom:none}
 .stat-label{font-size:13px;color:var(--text2)}
 .stat-val{font-size:14px;font-weight:500;color:var(--text)}
-.staff-entry{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border)}
-.staff-entry:last-child{border-bottom:none}
-.staff-num{font-size:15px;font-weight:500;min-width:52px;color:var(--sB)}
-.staff-info{flex:1;min-width:0}
-.staff-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.staff-meta{font-size:11px;color:var(--text3);margin-top:1px}
-.staff-btns{display:flex;gap:5px;flex-shrink:0}
-.other-cabin{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
-.other-cabin-icon{font-size:22px;flex-shrink:0}
-.other-cabin-info{flex:1}
-.other-cabin-label{font-size:11px;color:var(--text3);margin-bottom:2px}
-.other-cabin-num{font-size:20px;font-weight:700;color:var(--text)}
+.queue-item{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border)}
+.queue-item:last-child{border-bottom:none}
+.queue-num{font-size:15px;font-weight:500;min-width:52px;color:var(--sB)}
+.queue-info{flex:1;min-width:0}
+.queue-name{font-size:13px;font-weight:500;color:var(--text)}
+.queue-meta{font-size:11px;color:var(--text3);margin-top:1px}
 .empty{font-size:13px;color:var(--text3);font-style:italic;padding:4px 0}
+.noshow-bar{background:var(--amber-bg);border:0.5px solid var(--amber-b);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.noshow-btn{color:var(--amber);border:0.5px solid var(--amber-b);background:#fff;border-radius:var(--r-sm);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.auto-notify-bar{background:var(--green-bg);border:0.5px solid var(--green-b);border-radius:var(--r-sm);padding:8px 14px;margin-bottom:8px;font-size:12px;color:var(--green);display:none}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.live-dot{width:7px;height:7px;background:#639922;border-radius:50%;animation:pulse 1.5s infinite;position:absolute;left:16px;top:50%;transform:translateY(-50%)}
 </style>
 </head>
 <body>
 
-<!-- 置頂包廂標示 -->
 <div class="cabin-header">
   <div class="live-dot"></div>
   <div class="cabin-emoji">🌙</div>
@@ -2483,10 +2486,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <button class="btn" onclick="repeatCall()" style="margin-bottom:0">重複叫號</button>
   </div>
 
-  <!-- 對方包廂狀態 -->
+  <!-- 對方包廂 -->
   <div class="other-cabin">
     <div class="other-cabin-icon">☀️</div>
-    <div class="other-cabin-info">
+    <div>
       <div class="other-cabin-label">太陽包廂 目前服務</div>
       <div class="other-cabin-num" id="other-cabin-cur">—</div>
     </div>
@@ -2497,17 +2500,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="card-title">今日已服務</div>
     <div class="stat-row" style="border:none">
       <span class="stat-label">已完成服務人數</span>
-      <span class="stat-val" id="served-count">0</span>
+      <span class="stat-val" id="served-count">0 人</span>
     </div>
   </div>
 
-  <!-- 候位資訊 + 名單 -->
+  <!-- 共用候位序列 -->
   <div class="card">
     <div class="card-title">共用候位序列</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
-        <div style="font-size:28px;font-weight:600;color:var(--text)" id="waiting-label">0</div>
+        <div style="font-size:28px;font-weight:600;color:var(--text)" id="waiting-count">0</div>
         <div style="font-size:11px;color:var(--text3)">人</div>
       </div>
       <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
@@ -2516,11 +2519,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         <div style="font-size:11px;color:var(--text3)">分鐘</div>
       </div>
     </div>
+
+    <!-- 自動提醒倒數提示 -->
+    <div class="auto-notify-bar" id="auto-notify-bar">
+      ⏰ <span id="auto-notify-text"></span>
+    </div>
+
+    <!-- 未到場提示 -->
+    <div class="noshow-bar" id="noshow-bar" style="display:none">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--amber)" id="noshow-num-label">—</div>
+        <div style="font-size:11px;color:var(--amber);opacity:.8">叫號後未出現</div>
+      </div>
+      <button class="noshow-btn" onclick="noShowCurrent()">未到場</button>
+    </div>
+
+    <!-- 候位名單（無按鈕）-->
     <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
-  <!-- 重置 -->
-  <button class="btn" style="color:var(--red);border-color:var(--red-b);font-size:13px" onclick="resetSvc()">重置今日號碼</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2529,11 +2546,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 const CABIN_ID = 'moon';
 const CABIN_NAME = '🌙 月亮包廂';
+const AUTO_NOTIFY_DELAY = 10 * 60 * 1000; // 10 分鐘
 
-let state = {
-  B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null }
-};
+let state = { B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null } };
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
+let autoNotifyTimer = null;
+let autoNotifyTarget = null;
 
 function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
 function showToast(msg) {
@@ -2563,6 +2581,43 @@ async function sendLineNotify(userId, message) {
   } catch(e) {}
 }
 
+function scheduleAutoNotify(nextEntry) {
+  // 取消舊的計時器
+  if (autoNotifyTimer) clearTimeout(autoNotifyTimer);
+  if (!nextEntry) return;
+
+  autoNotifyTarget = nextEntry;
+
+  // 顯示倒數提示
+  const bar = document.getElementById('auto-notify-bar');
+  const text = document.getElementById('auto-notify-text');
+  bar.style.display = 'block';
+  text.textContent = \`將於 10 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
+
+  // 10 分鐘後自動發送
+  autoNotifyTimer = setTimeout(async () => {
+    // 確認這個人還在序列中
+    await syncFromServer();
+    const stillInQueue = state.B.queue.find(e => e.num === nextEntry.num);
+    if (stillInQueue) {
+      sendLineNotify(nextEntry.userId,
+        \`🔮 塔羅牌占卜｜⏰ \${nextEntry.name} 您好！距離您的 \${fmt(nextEntry.num)} 號快輪到了，請回到現場附近準備，感謝您 🙏\`);
+      // 更新提示
+      const bar = document.getElementById('auto-notify-bar');
+      const text = document.getElementById('auto-notify-text');
+      if (bar) {
+        text.textContent = \`已自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）\`;
+        setTimeout(() => { bar.style.display = 'none'; }, 5000);
+      }
+    } else {
+      const bar = document.getElementById('auto-notify-bar');
+      if (bar) bar.style.display = 'none';
+    }
+    autoNotifyTimer = null;
+    autoNotifyTarget = null;
+  }, AUTO_NOTIFY_DELAY);
+}
+
 async function callNext() {
   if (state.B.queue.length === 0) { showToast('目前無人候位'); return; }
   try {
@@ -2577,13 +2632,17 @@ async function callNext() {
       return;
     }
     const entry = data.called;
+    // 通知被叫到的人
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
     await syncFromServer();
+    // 設定 10 分鐘後自動提醒下一位
     if (state.B.queue.length > 0) {
-      const next = state.B.queue[0];
-      sendLineNotify(next.userId,
-        \`🔮 塔羅牌占卜｜⏰ \${next.name} 您好！您是下一位（\${fmt(next.num)} 號），請提前回到現場準備。\`);
+      scheduleAutoNotify(state.B.queue[0]);
+    } else {
+      if (autoNotifyTimer) { clearTimeout(autoNotifyTimer); autoNotifyTimer = null; }
+      const bar = document.getElementById('auto-notify-bar');
+      if (bar) bar.style.display = 'none';
     }
     showToast('已叫號：' + fmt(entry.num));
   } catch(e) { showToast('網路錯誤'); }
@@ -2599,27 +2658,6 @@ async function repeatCall() {
       \`🔮 塔羅牌占卜｜📢 再次提醒 \${entry.name} 您好！請 \${fmt(cur)} 號前往 \${cabinName} 入座，謝謝！\`);
   }
   showToast('已重複叫號 ' + fmt(cur));
-}
-
-async function notifyPerson(num) {
-  const entry = state.B.queue.find(q => q.num === num);
-  if (!entry) return;
-  const pos = state.B.queue.indexOf(entry);
-  const est = Math.max(0, Math.ceil((pos + 1) / 2) - 1) * cfg.services.B.minutes || cfg.services.B.minutes;
-  sendLineNotify(entry.userId,
-    \`🔮 塔羅牌占卜｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
-  showToast('已傳送提醒給 ' + entry.name);
-}
-
-async function cancelPerson(num) {
-  const entry = state.B.queue.find(q => q.num === num);
-  if (!entry || !confirm(\`確定取消 \${fmt(num)} 號（\${entry.name}）？\`)) return;
-  await fetch(BACKEND_URL + '/api/cancel', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ svc: 'B', num })
-  });
-  await syncFromServer();
-  showToast('已取消候位');
 }
 
 async function noShowCurrent() {
@@ -2639,16 +2677,6 @@ async function noShowCurrent() {
   showToast(\`\${numStr} 已重排至末位，已通知客人\`);
 }
 
-async function resetSvc() {
-  if (!confirm('確定重置今日塔羅牌所有號碼？')) return;
-  await fetch(BACKEND_URL + '/api/reset', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ svc: 'B' })
-  });
-  await syncFromServer();
-  showToast('已重置');
-}
-
 function render() {
   const q = state.B.queue;
   const cur = state.B.current;
@@ -2658,53 +2686,40 @@ function render() {
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
   document.getElementById('served-count').textContent = state.B.servedToday + ' 人';
   document.getElementById('other-cabin-cur').textContent = cur > 0 ? fmt(cur) : '—';
-  document.getElementById('waiting-label').textContent = q.length;
+  document.getElementById('waiting-count').textContent = q.length;
   const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
   document.getElementById('est-wait').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將') : '—';
 
   // 未到場提示
-  const list = document.getElementById('queue-list');
-  let html = '';
+  const noshowBar = document.getElementById('noshow-bar');
+  const noshowLabel = document.getElementById('noshow-num-label');
   if (cur > 0 && !q.find(e => e.num === cur)) {
-    html += \`<div style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b);display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:13px;font-weight:500;color:var(--amber)">\${fmt(cur)} 剛剛叫號，等待中</div>
-        <div style="font-size:11px;color:var(--amber);opacity:.8">若客人未到場可標記</div>
-      </div>
-      <button class="btn-sm" style="color:var(--amber);border:0.5px solid var(--amber-b);background:#fff;border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer"
-        onclick="noShowCurrent()">未到場</button>
-    </div>\`;
+    noshowBar.style.display = 'flex';
+    noshowLabel.textContent = \`\${fmt(cur)} 號叫號後未出現\`;
+  } else {
+    noshowBar.style.display = 'none';
   }
 
-  if (q.length === 0 && !html) {
-    list.innerHTML = '<span class="empty">目前無人候位</span>';
-    return;
-  }
-
+  // 候位名單（純顯示，無按鈕）
+  const list = document.getElementById('queue-list');
+  if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
-  html += displayQ.map((entry, i) => {
+  let html = displayQ.map((entry, i) => {
     const est = Math.max(0, Math.ceil((i + 1) / 2) - 1) * mins || mins;
     const posLabel = i === 0 ? '下一位' : \`第 \${i + 1} 位，約 \${est} 分鐘\`;
-    return \`<div class="staff-entry">
-      <div class="staff-num">\${fmt(entry.num)}</div>
-      <div class="staff-info">
-        <div class="staff-name">\${entry.name}</div>
-        <div class="staff-meta">\${posLabel}</div>
-      </div>
-      <div class="staff-btns">
-        <button class="btn-sm" style="color:var(--amber);border:0.5px solid var(--amber-b);background:var(--amber-bg);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer"
-          onclick="notifyPerson(\${entry.num})">提醒</button>
-        <button class="btn-sm" style="color:var(--red);border:0.5px solid var(--red-b);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer"
-          onclick="cancelPerson(\${entry.num})">取消</button>
+    return \`<div class="queue-item">
+      <div class="queue-num">\${fmt(entry.num)}</div>
+      <div class="queue-info">
+        <div class="queue-name">\${entry.name}</div>
+        <div class="queue-meta">\${posLabel}</div>
       </div>
     </div>\`;
   }).join('');
-
   if (remaining > 0) {
     html += \`<div style="text-align:center;padding:8px 0;font-size:12px;color:var(--text3)">還有 \${remaining} 人未顯示</div>\`;
   }
-  list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+  list.innerHTML = html;
 }
 
 syncFromServer();
