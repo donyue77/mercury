@@ -380,6 +380,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1606,6 +1607,21 @@ function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+async function cancelEntry(num) {
+  const entry = state.A.queue.find(e => e.num === num);
+  if (!entry) { showToast('找不到此候位'); return; }
+  if (!confirm('確定取消 ' + entry.name + '（' + fmt(entry.num) + '）的候位？')) return;
+  try {
+    await fetch(BACKEND_URL + '/api/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svc: 'A', num })
+    });
+    await syncFromServer();
+    showToast('已取消 ' + entry.name + ' 的候位');
+  } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
 
 function lookupByPhone() {
