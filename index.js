@@ -96,7 +96,14 @@ async function initDB() {
 // ── 讀寫資料庫 ────────────────────────────────────
 async function getState() {
   const res = await pool.query("SELECT value FROM queue_state WHERE key = 'main'");
-  return res.rows[0].value;
+  const data = res.rows[0].value;
+  // 確保 cabins 欄位永遠存在
+  if (!data.state.B.cabins) {
+    data.state.B.cabins = { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } };
+  }
+  if (!data.state.B.cabins.sun) data.state.B.cabins.sun = { current: 0, lastEntry: null, servedToday: 0 };
+  if (!data.state.B.cabins.moon) data.state.B.cabins.moon = { current: 0, lastEntry: null, servedToday: 0 };
+  return data;
 }
 async function saveState(data) {
   await pool.query(
@@ -326,6 +333,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
