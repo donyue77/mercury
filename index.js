@@ -392,6 +392,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1711,7 +1712,8 @@ function renderStatus() {
   const mins = cfg.services.A.minutes;
   const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
-  document.getElementById('waiting').textContent = q.length + ' 人';
+  const totalCapDisp = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
+  document.getElementById('waiting').textContent = q.length + ' 組' + (totalCapDisp > 0 ? '（共 ' + totalCapDisp + ' 人）' : '');
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '無需等候';
   document.getElementById('current').textContent = state.A.current > 0 ? fmt(state.A.current) : '—';
 
