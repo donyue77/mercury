@@ -15,6 +15,20 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// ── 叫號鎖（防止兩個包廂同時叫到同一號）────────────
+const callLocks = { B: false };
+async function withLock(svc, fn) {
+  if (callLocks[svc]) {
+    return null; // 鎖定中，拒絕此次請求
+  }
+  callLocks[svc] = true;
+  try {
+    return await fn();
+  } finally {
+    setTimeout(() => { callLocks[svc] = false; }, 1000); // 1 秒後解鎖
+  }
+}
+
 // ── 初始化資料庫 ──────────────────────────────────
 async function initDB() {
   await pool.query(`
@@ -109,6 +123,28 @@ app.post('/api/issue', async (req, res) => {
 app.post('/api/call-next', async (req, res) => {
   try {
     const { svc, cabin } = req.body;
+    // 塔羅牌使用鎖機制，防止兩個包廂同時叫號
+    if (svc === 'B') {
+      const result = await withLock(svc, async () => {
+        const data = await getState();
+        const q = data.state[svc].queue;
+        if (q.length === 0) return { error: '無人候位' };
+        const entry = q.shift();
+        data.state[svc].current = entry.num;
+        data.state[svc].lastCalledEntry = { ...entry, cabin: cabin || null };
+        data.state[svc].servedToday++;
+        data.state[svc].history.unshift(entry.num);
+        if (data.state[svc].history.length > 10) data.state[svc].history.pop();
+        await saveState(data);
+        return { success: true, called: { ...entry, cabin: cabin || null } };
+      });
+      if (result === null) {
+        return res.status(429).json({ error: '系統繁忙，請稍後再試（另一個包廂正在叫號）' });
+      }
+      if (result.error) return res.status(400).json({ error: result.error });
+      return res.json(result);
+    }
+    // 心願瓶不需要鎖
     const data = await getState();
     const q = data.state[svc].queue;
     if (q.length === 0) return res.status(400).json({ error: '無人候位' });
@@ -249,6 +285,9 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
+
+
 
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
@@ -628,7 +667,10 @@ function render() {
     const pos = q.findIndex(x => x.num === num);
     const wEl = document.getElementById('tk-wait');
     if (state[svc].current === num) {
-      wEl.className='wait-badge now'; wEl.textContent='📢 叫到您了！請前往';
+      const cabin = state[svc].lastCalledEntry?.cabin;
+      const cabinText = cabin === 'sun' ? '☀️ 太陽包廂' : cabin === 'moon' ? '🌙 月亮包廂' : '塔羅牌區';
+      wEl.className='wait-badge now';
+      wEl.textContent = svc === 'B' ? \`📢 叫到您了！請前往 \${cabinText}\` : '📢 叫到您了！請前往';
     } else if (pos === 0) {
       wEl.className='wait-badge soon'; wEl.textContent='您是下一位，請準備！';
     } else if (pos > 0) {
@@ -678,7 +720,7 @@ function renderStatus() {
   document.getElementById('status-waiting').textContent = q.length;
   const concurrent = svc === 'A' ? 5 : 2;
   const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / concurrent) - 1) * mins : 0;
-  document.getElementById('status-est').textContent = q.length > 0 ? estMins || '< ' + mins : '—';
+  document.getElementById('status-est').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將輪到') : '—';
   const pct = Math.min(100, Math.round(q.length / 20 * 100));
   document.getElementById('status-bar').style.width = pct + '%';
   document.getElementById('status-bar').className = 'wait-bar-fill ' + svc;
@@ -1725,11 +1767,12 @@ function render() {
   html += q.map((entry, i) => {
     const capSoFar = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
     const est = Math.max(0, Math.ceil(capSoFar / 5) - 1) * mins || mins;
+    const posLabel = i === 0 ? '下一位' : \`第 \${i + 1} 組，約 \${est} 分鐘\`;
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
       <div class="staff-info">
-        <div class="staff-name">\${entry.name}</div>
-        <div class="staff-meta">\${entry.phone || ''}｜\${i === 0 ? '下一位' : '約 ' + est + ' 分鐘'}</div>
+        <div class="staff-name">\${entry.name}\${entry.partySize > 1 ? ' (' + entry.partySize + ' 人)' : ''}</div>
+        <div class="staff-meta">\${entry.phone || ''}｜\${posLabel}</div>
       </div>
       <div class="staff-btns">
         <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:var(--amber-bg)"
@@ -2089,9 +2132,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 </head>
 <body>
 <div class="app">
-  <div style="background:#faeeda;border-bottom:2px solid #ef9f27;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;color:#854f0b">
-    ☀️ 太陽包廂
-  </div>
   <div class="topbar">
     <div class="live-dot"></div>
     <div class="topbar-title">🔮 塔羅牌引導</div>
@@ -2114,6 +2154,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="waiting">0</span></div>
     <div class="stat-row"><span class="stat-label">今日已服務</span><span class="stat-val" id="served">0</span></div>
     <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
+  </div>
+
+  <!-- 另一個包廂狀態 -->
+  <div class="card" style="padding:12px 16px;margin-bottom:12px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">🌙 月亮包廂 目前狀況</div>
+    <div style="display:flex;gap:0" id="other-cabin-info">
+      <div style="flex:1;text-align:center;border-right:0.5px solid var(--border)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">目前服務</div>
+        <div style="font-size:22px;font-weight:600;color:var(--text)" id="other-cabin-cur">—</div>
+      </div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">等候人數</div>
+        <div style="font-size:22px;font-weight:600;color:var(--text)" id="other-cabin-wait">0</div>
+      </div>
+    </div>
   </div>
 
   <!-- 候位名單 -->
@@ -2175,7 +2230,14 @@ async function callNext() {
       body: JSON.stringify({ svc: 'B', cabin: 'sun' })
     });
     const data = await res.json();
-    if (!data.success) { showToast(data.error || '叫號失敗'); return; }
+    if (!data.success) {
+      if (data.error && data.error.includes('繁忙')) {
+        showToast('⚠️ 另一個包廂正在叫號，請稍候再試');
+      } else {
+        showToast(data.error || '叫號失敗');
+      }
+      return;
+    }
     const entry = data.called;
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 ☀️ 太陽包廂 入座，謝謝！\`);
@@ -2297,6 +2359,14 @@ function render() {
     </div>\`;
   }).join('');
   list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+
+  // 顯示另一個包廂狀態（從lastCalledEntry判斷）
+  const otherCur = state.B.lastCalledEntry?.cabin === 'sun' || !state.B.lastCalledEntry
+    ? state.B.current : state.B.current;
+  const otherCurEl = document.getElementById('other-cabin-cur');
+  const otherWaitEl = document.getElementById('other-cabin-wait');
+  if (otherCurEl) otherCurEl.textContent = state.B.current > 0 ? fmt(state.B.current) : '—';
+  if (otherWaitEl) otherWaitEl.textContent = q.length + ' 人';
 }
 
 syncFromServer();
@@ -2369,9 +2439,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 </head>
 <body>
 <div class="app">
-  <div style="background:#eef2ff;border-bottom:2px solid #a5b4fc;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;color:#3b5bdb">
-    🌙 月亮包廂
-  </div>
   <div class="topbar">
     <div class="live-dot"></div>
     <div class="topbar-title">🔮 塔羅牌引導</div>
@@ -2394,6 +2461,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="waiting">0</span></div>
     <div class="stat-row"><span class="stat-label">今日已服務</span><span class="stat-val" id="served">0</span></div>
     <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
+  </div>
+
+  <!-- 另一個包廂狀態 -->
+  <div class="card" style="padding:12px 16px;margin-bottom:12px">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">☀️ 太陽包廂 目前狀況</div>
+    <div style="display:flex;gap:0" id="other-cabin-info">
+      <div style="flex:1;text-align:center;border-right:0.5px solid var(--border)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">目前服務</div>
+        <div style="font-size:22px;font-weight:600;color:var(--text)" id="other-cabin-cur">—</div>
+      </div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">等候人數</div>
+        <div style="font-size:22px;font-weight:600;color:var(--text)" id="other-cabin-wait">0</div>
+      </div>
+    </div>
   </div>
 
   <!-- 候位名單 -->
@@ -2455,7 +2537,14 @@ async function callNext() {
       body: JSON.stringify({ svc: 'B', cabin: 'moon' })
     });
     const data = await res.json();
-    if (!data.success) { showToast(data.error || '叫號失敗'); return; }
+    if (!data.success) {
+      if (data.error && data.error.includes('繁忙')) {
+        showToast('⚠️ 另一個包廂正在叫號，請稍候再試');
+      } else {
+        showToast(data.error || '叫號失敗');
+      }
+      return;
+    }
     const entry = data.called;
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 🌙 月亮包廂 入座，謝謝！\`);
@@ -2577,6 +2666,14 @@ function render() {
     </div>\`;
   }).join('');
   list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+
+  // 顯示另一個包廂狀態（從lastCalledEntry判斷）
+  const otherCur = state.B.lastCalledEntry?.cabin === 'moon' || !state.B.lastCalledEntry
+    ? state.B.current : state.B.current;
+  const otherCurEl = document.getElementById('other-cabin-cur');
+  const otherWaitEl = document.getElementById('other-cabin-wait');
+  if (otherCurEl) otherCurEl.textContent = state.B.current > 0 ? fmt(state.B.current) : '—';
+  if (otherWaitEl) otherWaitEl.textContent = q.length + ' 人';
 }
 
 syncFromServer();
