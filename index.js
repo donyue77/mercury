@@ -389,6 +389,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1537,7 +1539,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   <div class="card">
     <div class="card-title">目前狀況</div>
     <div class="stat-row">
-      <span class="stat-label">等候人數</span>
+      <span class="stat-label">等候組數</span>
       <span class="stat-val" id="waiting">0 人</span>
     </div>
     <div class="stat-row">
@@ -1847,7 +1849,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   <!-- 統計 -->
   <div class="card">
     <div class="card-title">今日狀況</div>
-    <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="waiting">0</span></div>
+    <div class="stat-row"><span class="stat-label">等候組數</span><span class="stat-val" id="waiting">0</span></div>
     <div class="stat-row"><span class="stat-label">今日已服務</span><span class="stat-val" id="served">0</span></div>
     <div class="stat-row" style="border:none"><span class="stat-label">預估等待</span><span class="stat-val" id="est">—</span></div>
   </div>
