@@ -370,6 +370,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -699,18 +700,18 @@ async function leaveQueue() {
   if (!myTicket) return;
   if (myTicket.svc === 'A') { showToast('心願瓶取消候位請至服務台洽詢'); return; }
   const svcName = cfg.services[myTicket.svc].name;
-  const numStr = myTicket.svc === 'B'
+  const cancelNumStr = myTicket.svc === 'B'
     ? cfg.services.B.prefix + String(myTicket.num).padStart(3,'0')
     : cfg.services.A.prefix + String(myTicket.num).padStart(3,'0');
-  if (!confirm(\`確定要取消 \${svcName} \${numStr} 號的候位嗎？\n取消後無法恢復。\`)) return;
+  if (!confirm(\`確定要取消 \${svcName} \${cancelNumStr} 號的候位嗎？\n取消後無法恢復。\`)) return;
   try {
     await fetch(BACKEND_URL + '/api/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ svc: myTicket.svc, num: myTicket.num })
     });
-    const numStr = fmt(myTicket.svc, myTicket.num);
-    const svcName = cfg.services[myTicket.svc].name;
+    const cancelTicketNumStr = fmt(myTicket.svc, myTicket.num);
+    const cancelSvcName = cfg.services[myTicket.svc].name;
     const cancelUserId = myTicket.userId;
     const cancelName = myTicket.name;
     myTicket = null;
@@ -722,7 +723,7 @@ async function leaveQueue() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: cancelUserId,
-          message: \`✅ \${cancelName} 您好！您的\${svcName} \${numStr} 號候位已成功取消。\n\n如有需要歡迎重新取號，感謝您！\`
+          message: \`✅ \${cancelName} 您好！您的\${cancelSvcName} \${cancelTicketNumStr} 號候位已成功取消。\n\n如有需要歡迎重新取號，感謝您！\`
         })
       }).catch(()=>{});
     }
@@ -810,9 +811,9 @@ function renderStatus() {
   const q = state[svc].queue;
   const cur = state[svc].current;
   const mins = cfg.services[svc].minutes;
-  const numStr = cur > 0 ? fmt(svc, cur) : '—';
+  const statusNumStr = cur > 0 ? fmt(svc, cur) : '—';
   const el = document.getElementById('status-cur');
-  el.textContent = numStr; el.className = 'big-num color-' + svc;
+  el.textContent = statusNumStr; el.className = 'big-num color-' + svc;
   document.getElementById('status-label').textContent = cur > 0 ? \`請 \${numStr} 號前往\` : '等待服務';
   document.getElementById('status-waiting').textContent = q.length;
   const concurrent = svc === 'A' ? 5 : 2;
@@ -1341,7 +1342,7 @@ function renderStaff() {
   const q = state[svc].queue;
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   list.innerHTML = q.map((entry, i) => {
-    const concurrent = svc === 'A' ? 5 : 2;
+    const concurrentEst = svc === 'A' ? 5 : 2;
     const est = Math.max(0, Math.ceil((i + 1) / concurrent) - 1) * cfg.services[svc].minutes || cfg.services[svc].minutes;
     return \`<div class="staff-entry">
       <div class="staff-num color-\${svc}">\${fmt(svc, entry.num)}</div>
@@ -1538,17 +1539,18 @@ function showToast(msg) {
 }
 
 async function cancelByPhone() {
-  const name = document.getElementById('cancel-inp-name').value.trim();
-  const rawPhone = document.getElementById('cancel-inp-phone').value.trim();
+  const cancelName = document.getElementById('cancel-inp-name').value.trim();
+  const cancelRawPhone = document.getElementById('cancel-inp-phone').value.trim();
   const phone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
-  if (!name && !phone) { showToast('請輸入姓名或手機號碼'); return; }
+  const cancelPhone = cancelRawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
+  if (!cancelName && !cancelPhone) { showToast('請輸入姓名或手機號碼'); return; }
   try {
     const res = await fetch(BACKEND_URL + '/api/state');
     const data = await res.json();
     const q = data.state.A.queue;
     const entry = q.find(e =>
-      (phone && e.phone === phone) ||
-      (name && e.name === name)
+      (cancelPhone && e.phone === cancelPhone) ||
+      (cancelName && e.name === cancelName)
     );
     if (!entry) { showToast('找不到此客人的候位'); return; }
     if (!confirm(\`確定取消 \${entry.name}（\${fmt(entry.num)}）的候位？\`)) return;
@@ -1812,8 +1814,8 @@ async function notifyPerson(num) {
   const entry = state.A.queue.find(q => q.num === num);
   if (!entry) return;
   const pos = state.A.queue.indexOf(entry);
-  const capSoFar = state.A.queue.slice(0, pos + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
-  const est = Math.max(0, Math.ceil(capSoFar / 5) - 1) * cfg.services.A.minutes || cfg.services.A.minutes;
+  const notifyCapSoFar = state.A.queue.slice(0, pos + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
+  const est = Math.max(0, Math.ceil(notifyCapSoFar / 5) - 1) * cfg.services.A.minutes || cfg.services.A.minutes;
   sendLineNotify(entry.userId, entry.phone, entry.name,
     \`🫙 心願瓶DIY｜⏰ \${entry.name} 您好！您的 \${fmt(num)} 號預計約 \${est} 分鐘後叫號，請提前回到現場準備。\`);
   showToast('已傳送提醒給 ' + entry.name);
@@ -2423,19 +2425,19 @@ async function callNext() {
 }
 
 async function repeatCall() {
-  const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
+  const repeatEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
   // 本包廂從未叫過號
-  if (!myCabinEntry) { showToast('此包廂尚未叫號'); return; }
+  if (!repeatEntry) { showToast('此包廂尚未叫號'); return; }
   // 重複通知本包廂最後叫出的號
-  sendLineNotify(myCabinEntry.userId,
-    \`🔮 塔羅牌占卜｜📢 再次提醒 \${myCabinEntry.name} 您好！請 \${fmt(myCabinEntry.num)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
-  showToast('已重複叫號 ' + fmt(myCabinEntry.num));
+  sendLineNotify(repeatEntry.userId,
+    \`🔮 塔羅牌占卜｜📢 再次提醒 \${repeatEntry.name} 您好！請 \${fmt(repeatEntry.num)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
+  showToast('已重複叫號 ' + fmt(repeatEntry.num));
 }
 
 async function noShowCurrent() {
-  const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
-  if (!myCabinEntry) { showToast('尚未叫號'); return; }
-  const num = myCabinEntry.num;
+  const noshowEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
+  if (!noshowEntry) { showToast('尚未叫號'); return; }
+  const num = noshowEntry.num;
   const numStr = fmt(num);
   const res = await fetch(BACKEND_URL + '/api/noshow', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2448,8 +2450,8 @@ async function noShowCurrent() {
       \`🔮 塔羅牌占卜｜\${data.entry.name} 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位。若您仍在現場附近，請留意後續叫號通知；如需取消候位，可至取號頁面點取消按鈕，感謝您的配合 🙏\`);
   }
   // 重新安排自動提醒給新的下一位
-  const nextInQueue = state.B.queue.length > 0 ? state.B.queue[0] : null;
-  scheduleAutoNotify(nextInQueue);
+  const noshowNextInQueue = state.B.queue.length > 0 ? state.B.queue[0] : null;
+  scheduleAutoNotify(noshowNextInQueue);
   showToast(\`\${numStr} 已重排至末位，已通知客人\`);
 }
 
@@ -2478,8 +2480,8 @@ function render() {
   // 未到場提示（只顯示本包廂叫出的號）
   const noshowBar = document.getElementById('noshow-bar');
   const noshowLabel = document.getElementById('noshow-label');
-  const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
-  const myLastNum = myCabinEntry?.num || 0;
+  const renderMyCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
+  const myLastNum = renderMyCabinEntry?.num || 0;
   const myCabinCurrent = state.B.cabins?.[CABIN_ID]?.current || 0;
   // 只有本包廂叫的號、且不在候位序列中、且尚未被處理才顯示
   if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum)) {
@@ -2742,19 +2744,19 @@ async function callNext() {
 }
 
 async function repeatCall() {
-  const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
+  const repeatEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
   // 本包廂從未叫過號
-  if (!myCabinEntry) { showToast('此包廂尚未叫號'); return; }
+  if (!repeatEntry) { showToast('此包廂尚未叫號'); return; }
   // 重複通知本包廂最後叫出的號
-  sendLineNotify(myCabinEntry.userId,
-    \`🔮 塔羅牌占卜｜📢 再次提醒 \${myCabinEntry.name} 您好！請 \${fmt(myCabinEntry.num)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
-  showToast('已重複叫號 ' + fmt(myCabinEntry.num));
+  sendLineNotify(repeatEntry.userId,
+    \`🔮 塔羅牌占卜｜📢 再次提醒 \${repeatEntry.name} 您好！請 \${fmt(repeatEntry.num)} 號前往 \${CABIN_NAME} 入座，謝謝！\`);
+  showToast('已重複叫號 ' + fmt(repeatEntry.num));
 }
 
 async function noShowCurrent() {
-  const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
-  if (!myCabinEntry) { showToast('尚未叫號'); return; }
-  const num = myCabinEntry.num;
+  const noshowEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
+  if (!noshowEntry) { showToast('尚未叫號'); return; }
+  const num = noshowEntry.num;
   const numStr = fmt(num);
   const res = await fetch(BACKEND_URL + '/api/noshow', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2767,8 +2769,8 @@ async function noShowCurrent() {
       \`🔮 塔羅牌占卜｜\${data.entry.name} 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位。若您仍在現場附近，請留意後續叫號通知；如需取消候位，可至取號頁面點取消按鈕，感謝您的配合 🙏\`);
   }
   // 重新安排自動提醒給新的下一位
-  const nextInQueue = state.B.queue.length > 0 ? state.B.queue[0] : null;
-  scheduleAutoNotify(nextInQueue);
+  const noshowNextInQueue = state.B.queue.length > 0 ? state.B.queue[0] : null;
+  scheduleAutoNotify(noshowNextInQueue);
   showToast(\`\${numStr} 已重排至末位，已通知客人\`);
 }
 
@@ -2797,8 +2799,8 @@ function render() {
   // 未到場提示（只顯示本包廂叫出的號）
   const noshowBar = document.getElementById('noshow-bar');
   const noshowLabel = document.getElementById('noshow-label');
-  const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
-  const myLastNum = myCabinEntry?.num || 0;
+  const renderMyCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
+  const myLastNum = renderMyCabinEntry?.num || 0;
   const myCabinCurrent = state.B.cabins?.[CABIN_ID]?.current || 0;
   // 只有本包廂叫的號、且不在候位序列中、且尚未被處理才顯示
   if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum)) {
