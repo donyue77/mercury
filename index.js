@@ -52,7 +52,7 @@ async function initDB() {
       state: {
         A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null },
         B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null,
-             cabins: { sun: { current: 0, lastEntry: null }, moon: { current: 0, lastEntry: null } } }
+             cabins: { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } } }
       },
       cfg: {
         systemName: '排隊系統',
@@ -72,11 +72,17 @@ async function initDB() {
       updated = true;
     }
     if (!data.state.B.cabins.sun) {
-      data.state.B.cabins.sun = { current: 0, lastEntry: null };
+      data.state.B.cabins.sun = { current: 0, lastEntry: null, servedToday: 0 };
+      updated = true;
+    } else if (data.state.B.cabins.sun.servedToday === undefined) {
+      data.state.B.cabins.sun.servedToday = 0;
       updated = true;
     }
     if (!data.state.B.cabins.moon) {
-      data.state.B.cabins.moon = { current: 0, lastEntry: null };
+      data.state.B.cabins.moon = { current: 0, lastEntry: null, servedToday: 0 };
+      updated = true;
+    } else if (data.state.B.cabins.moon.servedToday === undefined) {
+      data.state.B.cabins.moon.servedToday = 0;
       updated = true;
     }
     if (updated) {
@@ -156,7 +162,12 @@ app.post('/api/call-next', async (req, res) => {
         data.state[svc].servedToday++;
         // Store per-cabin tracking for tarot
         if (svc === 'B' && cabin && data.state[svc].cabins) {
-          data.state[svc].cabins[cabin] = { current: entry.num, lastEntry: { ...entry, cabin } };
+          const prevServed = data.state[svc].cabins[cabin]?.servedToday || 0;
+          data.state[svc].cabins[cabin] = {
+            current: entry.num,
+            lastEntry: { ...entry, cabin },
+            servedToday: prevServed + 1
+          };
         }
         data.state[svc].history.unshift(entry.num);
         if (data.state[svc].history.length > 10) data.state[svc].history.pop();
@@ -223,7 +234,7 @@ app.post('/api/reset', async (req, res) => {
     const empty = { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null };
     if (svc) {
       data.state[svc] = { ...empty,
-          cabins: { sun: { current: 0, lastEntry: null }, moon: { current: 0, lastEntry: null } }
+          cabins: { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } }
         };
     } else {
       data.state = { A: { ...empty }, B: { ...empty } };
@@ -315,6 +326,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -2395,7 +2407,8 @@ function render() {
   document.getElementById('other-cur').textContent = otherCurrent > 0 ? fmt(otherCurrent) : '—';
 
   // 今日已服務
-  document.getElementById('served-count').textContent = state.B.servedToday + ' 人';
+  const myServed = state.B.cabins?.[CABIN_ID]?.servedToday || 0;
+  document.getElementById('served-count').textContent = myServed + ' 人';
 
   // 等候人數與預估
   document.getElementById('waiting-count').textContent = q.length;
@@ -2712,7 +2725,8 @@ function render() {
   document.getElementById('other-cur').textContent = otherCurrent > 0 ? fmt(otherCurrent) : '—';
 
   // 今日已服務
-  document.getElementById('served-count').textContent = state.B.servedToday + ' 人';
+  const myServed = state.B.cabins?.[CABIN_ID]?.servedToday || 0;
+  document.getElementById('served-count').textContent = myServed + ' 人';
 
   // 等候人數與預估
   document.getElementById('waiting-count').textContent = q.length;
