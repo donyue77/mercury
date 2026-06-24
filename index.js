@@ -221,6 +221,21 @@ app.post('/api/noshow', async (req, res) => {
     data.state[svc].queue = q.filter(e => e.num !== num);
     if (!entry) entry = data.state[svc].lastCalledEntry || null;
     if (requeue && entry) {
+      // 扣除已服務數量
+      if (data.state[svc].servedToday > 0) {
+        data.state[svc].servedToday--;
+      }
+      // 塔羅牌：扣除包廂計數 + 清空目前服務號
+      if (svc === 'B' && data.state[svc].cabins) {
+        const cabinId = entry.cabin;
+        if (cabinId && data.state[svc].cabins[cabinId]) {
+          if (data.state[svc].cabins[cabinId].servedToday > 0) {
+            data.state[svc].cabins[cabinId].servedToday--;
+          }
+          data.state[svc].cabins[cabinId].current = 0;
+        }
+      }
+      // 重排
       if (svc === 'A') {
         const newQ = [...data.state[svc].queue];
         newQ.splice(1, 0, entry);
@@ -333,6 +348,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
