@@ -391,6 +391,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1323,6 +1324,26 @@ async function resetSvc() {
   });
   await syncFromServer(); showToast('已重置');
 }
+async function resetWishbottle() {
+  if (!confirm('確定重置心願瓶今日所有號碼？')) return;
+  await fetch(BACKEND_URL + '/api/reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'A' })
+  });
+  await syncFromServer();
+  showToast('心願瓶號碼已重置');
+}
+
+async function resetTarot() {
+  if (!confirm('確定重置塔羅牌今日所有號碼？')) return;
+  await fetch(BACKEND_URL + '/api/reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ svc: 'B' })
+  });
+  await syncFromServer();
+  showToast('塔羅牌號碼已重置');
+}
+
 async function resetAll() {
   if (!confirm('確定重置所有服務？')) return;
   await fetch(BACKEND_URL + '/api/reset', {
