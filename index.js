@@ -292,6 +292,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2182,15 +2183,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
   <!-- 候位資訊 + 名單 -->
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div class="card-title" style="margin-bottom:0">共用候位序列</div>
-      <div style="font-size:12px;color:var(--text3)" id="waiting-label">0 人</div>
+    <div class="card-title">共用候位序列</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
+        <div style="font-size:28px;font-weight:600;color:var(--text)" id="waiting-label">0</div>
+        <div style="font-size:11px;color:var(--text3)">人</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">預估等待</div>
+        <div style="font-size:28px;font-weight:600;color:var(--text)" id="est-wait">—</div>
+        <div style="font-size:11px;color:var(--text3)">分鐘</div>
+      </div>
     </div>
-    <div class="stat-row">
-      <span class="stat-label">預估等待</span>
-      <span class="stat-val" id="est-wait">—</span>
-    </div>
-    <div style="margin-top:8px" id="queue-list"><span class="empty">目前無人候位</span></div>
+    <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
   <!-- 重置 -->
@@ -2332,9 +2338,9 @@ function render() {
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
   document.getElementById('served-count').textContent = state.B.servedToday + ' 人';
   document.getElementById('other-cabin-cur').textContent = cur > 0 ? fmt(cur) : '—';
-  document.getElementById('waiting-label').textContent = q.length + ' 人等候';
+  document.getElementById('waiting-label').textContent = q.length;
   const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
-  document.getElementById('est-wait').textContent = q.length > 0 ? (estMins > 0 ? '約 ' + estMins + ' 分鐘' : '即將輪到') : '—';
+  document.getElementById('est-wait').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將') : '—';
 
   // 未到場提示
   const list = document.getElementById('queue-list');
@@ -2497,15 +2503,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
   <!-- 候位資訊 + 名單 -->
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div class="card-title" style="margin-bottom:0">共用候位序列</div>
-      <div style="font-size:12px;color:var(--text3)" id="waiting-label">0 人</div>
+    <div class="card-title">共用候位序列</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
+        <div style="font-size:28px;font-weight:600;color:var(--text)" id="waiting-label">0</div>
+        <div style="font-size:11px;color:var(--text3)">人</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:var(--r-sm)">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">預估等待</div>
+        <div style="font-size:28px;font-weight:600;color:var(--text)" id="est-wait">—</div>
+        <div style="font-size:11px;color:var(--text3)">分鐘</div>
+      </div>
     </div>
-    <div class="stat-row">
-      <span class="stat-label">預估等待</span>
-      <span class="stat-val" id="est-wait">—</span>
-    </div>
-    <div style="margin-top:8px" id="queue-list"><span class="empty">目前無人候位</span></div>
+    <div id="queue-list"><span class="empty">目前無人候位</span></div>
   </div>
 
   <!-- 重置 -->
@@ -2647,9 +2658,9 @@ function render() {
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號入座\` : '等待開始';
   document.getElementById('served-count').textContent = state.B.servedToday + ' 人';
   document.getElementById('other-cabin-cur').textContent = cur > 0 ? fmt(cur) : '—';
-  document.getElementById('waiting-label').textContent = q.length + ' 人等候';
+  document.getElementById('waiting-label').textContent = q.length;
   const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
-  document.getElementById('est-wait').textContent = q.length > 0 ? (estMins > 0 ? '約 ' + estMins + ' 分鐘' : '即將輪到') : '—';
+  document.getElementById('est-wait').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將') : '—';
 
   // 未到場提示
   const list = document.getElementById('queue-list');
