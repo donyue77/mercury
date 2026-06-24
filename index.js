@@ -372,6 +372,10 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1462,6 +1466,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .success-sub{font-size:13px;color:var(--green);text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
+.title-btn{padding:10px 16px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:transparent;font-size:15px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.title-btn.active{background:var(--sA);color:#fff;border-color:var(--sA)}
 .empty{font-size:13px;color:var(--text3);font-style:italic}
 .party-btn{padding:8px 16px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:transparent;font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .15s}
 .party-btn.active{background:var(--sA);color:#fff;border-color:var(--sA)}
@@ -1497,8 +1503,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   <div class="card">
     <div class="card-title">登記候位</div>
     <div class="field">
-      <label>客人姓名</label>
-      <input type="text" id="inp-name" placeholder="請輸入姓名" autocomplete="off"/>
+      <label>客人稱謂</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="inp-surname" placeholder="請輸入姓氏" autocomplete="off"
+          style="flex:1;padding:12px;border:0.5px solid var(--border2);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:16px;font-family:inherit"/>
+        <div style="display:flex;gap:6px;flex-shrink:0" id="title-btns">
+          <button type="button" class="title-btn active" onclick="setTitle('先生')">先生</button>
+          <button type="button" class="title-btn" onclick="setTitle('小姐')">小姐</button>
+        </div>
+      </div>
     </div>
     <div class="field">
       <label>人數</label>
@@ -1557,6 +1570,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 <script>
 const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 let partySize = 1;
+let titleStr = '先生';
+
+function setTitle(t) {
+  titleStr = t;
+  document.querySelectorAll('.title-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === t);
+  });
+}
 
 function setParty(n) {
   partySize = n;
@@ -1577,7 +1598,6 @@ function showToast(msg) {
 async function cancelByPhone() {
   const cancelName = document.getElementById('cancel-inp-name').value.trim();
   const cancelRawPhone = document.getElementById('cancel-inp-phone').value.trim();
-  const phone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
   const cancelPhone = cancelRawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
   if (!cancelName && !cancelPhone) { showToast('請輸入姓名或手機號碼'); return; }
   try {
@@ -1626,18 +1646,36 @@ async function sendLineNotify(phone, name, message) {
 function renderStatus() {
   const q = state.A.queue;
   const mins = cfg.services.A.minutes;
-  document.getElementById('waiting').textContent = q.length + ' 人';
   const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
+  document.getElementById('waiting').textContent = q.length + ' 人';
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '無需等候';
   document.getElementById('current').textContent = state.A.current > 0 ? fmt(state.A.current) : '—';
+
+  // 候位名單
+  const list = document.getElementById('checkout-queue-list');
+  if (!list) return;
+  if (q.length === 0) { list.innerHTML = '<span style="font-size:13px;color:var(--text3);font-style:italic">目前無人候位</span>'; return; }
+  list.innerHTML = q.map((entry, i) => {
+    const capSoFarQ = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
+    const estEntry = Math.max(0, Math.ceil(capSoFarQ / 5) - 1) * mins || mins;
+    const posLabel = i === 0 ? '下一組' : '第 ' + (i + 1) + ' 組，約 ' + estEntry + ' 分鐘';
+    const partyLabel = entry.partySize > 1 ? ' (' + entry.partySize + ' 人)' : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)">'
+      + '<div style="font-size:14px;font-weight:500;min-width:52px;color:var(--sA)">' + fmt(entry.num) + '</div>'
+      + '<div style="flex:1">'
+      + '<div style="font-size:13px;font-weight:500;color:var(--text)">' + entry.name + partyLabel + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);margin-top:1px">' + (entry.phone || '') + '｜' + posLabel + '</div>'
+      + '</div></div>';
+  }).join('');
 }
 
 async function register() {
-  const name = document.getElementById('inp-name').value.trim();
+  const surname = document.getElementById('inp-surname').value.trim();
+  const name = surname ? surname + titleStr : '';
   const rawPhone = document.getElementById('inp-phone').value.trim();
   const cleanPhone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
-  if (!name) { showToast('請輸入客人姓名'); return; }
+  if (!surname) { showToast('請輸入客人姓氏'); return; }
   if (cleanPhone.length !== 10 || cleanPhone.slice(0,2) !== '09') {
     showToast('請輸入有效手機號碼（格式：09xxxxxxxx）'); return;
   }
@@ -1660,10 +1698,11 @@ async function register() {
     document.getElementById('success-num').textContent = numStr;
     document.getElementById('success-sub').textContent = \`已傳送 LINE 通知給 \${name}\`;
     document.getElementById('success-banner').classList.add('show');
-    document.getElementById('inp-name').value = '';
+    document.getElementById('inp-surname').value = '';
     document.getElementById('inp-phone').value = '';
-    document.getElementById('inp-name').focus();
+    document.getElementById('inp-surname').focus();
     setParty(1);
+    setTitle('先生');
     setTimeout(() => document.getElementById('success-banner').classList.remove('show'), 5000);
   } catch(e) { showToast('網路錯誤，請再試一次'); }
 }
@@ -1903,11 +1942,11 @@ function render() {
   const q = state.A.queue;
   const cur = state.A.current;
   const mins = cfg.services.A.minutes;
+  const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
   document.getElementById('cur-label').textContent = cur > 0 ? \`請 \${fmt(cur)} 號前往領瓶\` : '等待開始';
   document.getElementById('served').textContent = state.A.servedToday;
   document.getElementById('waiting').textContent = q.length + (totalCap > q.length ? \` (共 \${totalCap} 人)\` : '');
-  const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '—';
 
@@ -1920,7 +1959,7 @@ function render() {
     // 找到叫號記錄（從history找name）
     const calledStr = fmt(calledNum);
     html += \`<div class="staff-entry" style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b)">
-      <div class="staff-num" style="color:var(--amber)">\${calledStr}</div>
+      <div class="staff-num" style="color:var(--amber)">\${fmt(calledNum)}</div>
       <div class="staff-info">
         <div class="staff-name" style="color:var(--amber)">剛剛叫號，等待中</div>
         <div class="staff-meta">若客人未到場可標記</div>
@@ -1931,15 +1970,18 @@ function render() {
       </div>
     </div>\`;
   }
-  html += q.map((entry, i) => {
-    const capSoFar = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
-    const est = Math.max(0, Math.ceil(capSoFar / 5) - 1) * mins || mins;
-    const posLabel = i === 0 ? '下一位' : \`第 \${i + 1} 組，約 \${est} 分鐘\`;
+  const displayQ = q.slice(0, 10);
+  const remaining = q.length - 10;
+  html += displayQ.map((entry, i) => {
+    const listCapSoFar = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
+    const est = Math.max(0, Math.ceil(listCapSoFar / 5) - 1) * mins || mins;
+    const sizeLabel = (entry.partySize || 1) + ' 人';
+    const posLabel = i === 0 ? '下一組' : \`第 \${i + 1} 組，約 \${est} 分鐘\`;
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
       <div class="staff-info">
-        <div class="staff-name">\${entry.name}\${entry.partySize > 1 ? ' (' + entry.partySize + ' 人)' : ''}</div>
-        <div class="staff-meta">\${entry.phone || ''}｜\${posLabel}</div>
+        <div class="staff-name">\${entry.name}</div>
+        <div class="staff-meta">\${sizeLabel}｜\${posLabel}</div>
       </div>
       <div class="staff-btns">
         <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:var(--amber-bg)"
@@ -1949,7 +1991,10 @@ function render() {
       </div>
     </div>\`;
   }).join('');
-  list.innerHTML = html;
+  if (remaining > 0) {
+    html += \`<div style="text-align:center;padding:8px 0;font-size:12px;color:var(--text3)">還有 \${remaining} 組未顯示</div>\`;
+  }
+  list.innerHTML = html || '<span class="empty">目前無人候位</span>';
 }
 
 syncFromServer();
