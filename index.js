@@ -342,6 +342,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -995,8 +997,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <div class="card">
         <div class="card-title">統計</div>
         <div class="stat-row"><span class="stat-label">等候人數</span><span class="stat-val" id="staff-waiting">0</span></div>
-        <div class="stat-row"><span class="stat-label">今日已服務</span><span class="stat-val" id="staff-served">0</span></div>
         <div class="stat-row" style="border:none"><span class="stat-label">最後發號</span><span class="stat-val" id="staff-last">—</span></div>
+      </div>
+
+      <!-- 今日服務統計 -->
+      <div class="card">
+        <div class="card-title">今日服務統計</div>
+        <div class="stat-row">
+          <span class="stat-label">🫙 心願瓶DIY</span>
+          <span class="stat-val" id="st-served-a">0 人</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">☀️ 太陽包廂</span>
+          <span class="stat-val" id="st-served-sun">0 人</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">🌙 月亮包廂</span>
+          <span class="stat-val" id="st-served-moon">0 人</span>
+        </div>
+        <div class="stat-row" style="border-top:1.5px solid var(--border2);margin-top:4px;padding-top:12px;border-bottom:none">
+          <span class="stat-label" style="font-weight:600">今日總計</span>
+          <span class="stat-val" style="font-size:18px;font-weight:700" id="st-served-total">0 人</span>
+        </div>
       </div>
 
       <button class="btn btn-danger" onclick="resetSvc()" style="margin-bottom:6px">重置此服務今日號碼</button>
@@ -1274,7 +1296,19 @@ function renderStaff() {
   curEl.style.color = cur > 0 ? (svc==='A'?'var(--sA)':'var(--sB)') : 'var(--text)';
 
   document.getElementById('staff-waiting').textContent = state[svc].queue.length;
-  document.getElementById('staff-served').textContent = state[svc].servedToday;
+  // 今日統計
+  const sunServed = state.B?.cabins?.sun?.servedToday || 0;
+  const moonServed = state.B?.cabins?.moon?.servedToday || 0;
+  const aServed = state.A?.servedToday || 0;
+  const total = aServed + sunServed + moonServed;
+  const stA = document.getElementById('st-served-a');
+  const stSun = document.getElementById('st-served-sun');
+  const stMoon = document.getElementById('st-served-moon');
+  const stTotal = document.getElementById('st-served-total');
+  if (stA) stA.textContent = aServed + ' 人';
+  if (stSun) stSun.textContent = sunServed + ' 人';
+  if (stMoon) stMoon.textContent = moonServed + ' 人';
+  if (stTotal) stTotal.textContent = total + ' 人';
   document.getElementById('staff-last').textContent = state[svc].lastIssued > 0 ? fmt(svc, state[svc].lastIssued) : '—';
 
   const list = document.getElementById('staff-list');
@@ -2420,8 +2454,9 @@ function render() {
   const noshowLabel = document.getElementById('noshow-label');
   const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
   const myLastNum = myCabinEntry?.num || 0;
-  // 顯示未到場提示：本包廂最後叫的號不在隊列中，且還在等
-  if (myLastNum > 0 && !q.find(e => e.num === myLastNum) && state.B.current === myLastNum) {
+  const myCabinCurrent = state.B.cabins?.[CABIN_ID]?.current || 0;
+  // 只有本包廂叫的號、且不在候位序列中、且尚未被處理才顯示
+  if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum)) {
     noshowBar.style.display = 'flex';
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
@@ -2738,8 +2773,9 @@ function render() {
   const noshowLabel = document.getElementById('noshow-label');
   const myCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
   const myLastNum = myCabinEntry?.num || 0;
-  // 顯示未到場提示：本包廂最後叫的號不在隊列中，且還在等
-  if (myLastNum > 0 && !q.find(e => e.num === myLastNum) && state.B.current === myLastNum) {
+  const myCabinCurrent = state.B.cabins?.[CABIN_ID]?.current || 0;
+  // 只有本包廂叫的號、且不在候位序列中、且尚未被處理才顯示
+  if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum)) {
     noshowBar.style.display = 'flex';
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
