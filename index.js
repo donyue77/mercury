@@ -238,13 +238,16 @@ app.post('/webhook', async (req, res) => {
         const data = await getState();
         const q = data.state.B;
         const cfg = data.cfg.services.B;
-        const cur = q.current > 0 ? cfg.prefix + String(q.current).padStart(3,'0') : '尚未開始';
+        const cabins = q.cabins || {};
+        const sunCur = cabins.sun?.current > 0 ? cfg.prefix + String(cabins.sun.current).padStart(3,'0') : '尚未開始';
+        const moonCur = cabins.moon?.current > 0 ? cfg.prefix + String(cabins.moon.current).padStart(3,'0') : '尚未開始';
         const waiting = q.queue.length;
         const estMins = waiting > 0 ? Math.max(0, Math.ceil(waiting / 2) - 1) * cfg.minutes : 0;
         const estText = waiting === 0 ? '目前無人候位' : estMins > 0 ? `預估等待約 ${estMins} 分鐘` : '即將輪到下一位';
+        const replyMsg = `🔮 塔羅牌占卜｜目前叫號查詢\n\n☀️ 太陽包廂：${sunCur}\n🌙 月亮包廂：${moonCur}\n\n等候人數：${waiting} 人\n${estText}\n\n輪到您時我們會主動通知您 🙏`;
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
-          messages: [{ type: 'text', text: `🔮 塔羅牌占卜｜目前叫號查詢\n\n現在服務號：${cur}\n等候人數：${waiting} 人\n${estText}\n\n輪到您時我們會主動通知您 🙏` }]
+          messages: [{ type: 'text', text: replyMsg }]
         }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
         continue;
       }
@@ -292,6 +295,8 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
+
 
 
 
@@ -499,6 +504,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       <button class="svc-tab active-A" id="status-tab-A" onclick="setStatusSvc('A')" id="status-tab-A">心願瓶DIY</button>
       <button class="svc-tab" id="status-tab-B" onclick="setStatusSvc('B')">塔羅牌占卜</button>
     </div>
+    <!-- 塔羅牌兩包廂狀態 -->
+    <div id="tarot-cabins" style="display:none;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:16px;margin-bottom:4px">☀️</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">太陽包廂</div>
+          <div style="font-size:24px;font-weight:600;color:var(--sB)" id="sun-cur">—</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:16px;margin-bottom:4px">🌙</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">月亮包廂</div>
+          <div style="font-size:24px;font-weight:600;color:var(--sB)" id="moon-cur">—</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div style="text-align:center;padding:20px 0 14px">
         <div class="big-num" id="status-cur">—</div>
@@ -2270,7 +2291,7 @@ function scheduleAutoNotify(nextEntry) {
     const still = state.B.queue.find(e => e.num === autoTargetNum);
     if (still) {
       sendLineNotify(still.userId,
-        \`🔮 塔羅牌占卜｜⏰ \${still.name} 您好！距離您的 \${fmt(still.num)} 號快輪到了，請回到現場附近準備，感謝您 🙏\`);
+        \`🔮 塔羅牌占卜｜⏰ \${still.name} 您好！您的 \${fmt(still.num)} 號快輪到了，請先回到現場附近準備，我們將在您的號碼叫到時再次通知您 🙏\`);
       if (bar) {
         text.textContent = \`✅ 已自動提醒 \${still.name}（\${fmt(still.num)}）\`;
         setTimeout(() => { bar.style.display = 'none'; }, 8000);
@@ -2592,7 +2613,7 @@ function scheduleAutoNotify(nextEntry) {
     const still = state.B.queue.find(e => e.num === autoTargetNum);
     if (still) {
       sendLineNotify(still.userId,
-        \`🔮 塔羅牌占卜｜⏰ \${still.name} 您好！距離您的 \${fmt(still.num)} 號快輪到了，請回到現場附近準備，感謝您 🙏\`);
+        \`🔮 塔羅牌占卜｜⏰ \${still.name} 您好！您的 \${fmt(still.num)} 號快輪到了，請先回到現場附近準備，我們將在您的號碼叫到時再次通知您 🙏\`);
       if (bar) {
         text.textContent = \`✅ 已自動提醒 \${still.name}（\${fmt(still.num)}）\`;
         setTimeout(() => { bar.style.display = 'none'; }, 8000);
