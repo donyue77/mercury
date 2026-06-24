@@ -1,93 +1,176 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const LINE_TOKEN = process.env.LINE_TOKEN;
-const phoneToUserId = {};
-const userIdMap = {};
 
-let sharedState = {
-  A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null },
-  B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null }
-};
-let sharedCfg = {
-  systemName: '排隊系統',
-  services: {
-    A: { name: '心願瓶DIY', prefix: 'A', minutes: 12, concurrent: 5 },
-    B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15, concurrent: 2 }
-  }
-};
-
-app.get('/api/state', (req, res) => res.json({ state: sharedState, cfg: sharedCfg }));
-app.post('/api/state', (req, res) => {
-  if (req.body.state) sharedState = req.body.state;
-  if (req.body.cfg) sharedCfg = req.body.cfg;
-  res.json({ success: true });
-});
-app.post('/api/issue', (req, res) => {
-  const { svc, name, userId, phone, partySize } = req.body;
-  if (!svc || !name) return res.status(400).json({ error: '缺少參數' });
-  sharedState[svc].lastIssued++;
-  const num = sharedState[svc].lastIssued;
-  const size = Math.min(Math.max(parseInt(partySize) || 1, 1), 6);
-  sharedState[svc].queue.push({ num, name, userId: userId || '—', phone: phone || null, partySize: size });
-  res.json({ success: true, num });
-});
-app.post('/api/call-next', (req, res) => {
-  const { svc } = req.body;
-  const q = sharedState[svc].queue;
-  if (q.length === 0) return res.status(400).json({ error: '無人候位' });
-  const entry = q.shift();
-  sharedState[svc].current = entry.num;
-  sharedState[svc].lastCalledEntry = entry;
-  sharedState[svc].servedToday++;
-  sharedState[svc].history.unshift(entry.num);
-  if (sharedState[svc].history.length > 10) sharedState[svc].history.pop();
-  res.json({ success: true, called: entry });
-});
-app.post('/api/cancel', (req, res) => {
-  const { svc, num } = req.body;
-  sharedState[svc].queue = sharedState[svc].queue.filter(q => q.num !== num);
-  res.json({ success: true });
-});
-app.post('/api/noshow', (req, res) => {
-  const { svc, num, requeue } = req.body;
-  const q = sharedState[svc].queue;
-  let entry = q.find(e => e.num === num);
-  // Remove from current position
-  sharedState[svc].queue = q.filter(e => e.num !== num);
-  // Use lastCalledEntry if not found in queue
-  if (!entry) entry = sharedState[svc].lastCalledEntry || null;
-  if (requeue && entry) {
-    if (svc === 'A') {
-      // 心願瓶：插入第 2 位（index 1），給客人多一點時間
-      const newQ = [...sharedState[svc].queue];
-      newQ.splice(1, 0, entry);
-      sharedState[svc].queue = newQ;
-    } else {
-      // 塔羅牌：排至末位
-      sharedState[svc].queue.push(entry);
-    }
-  }
-  res.json({ success: true, entry: entry || null });
+// ── 資料庫連線 ────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
-app.post('/api/reset', (req, res) => {
-  const { svc } = req.body;
-  if (svc) {
-    sharedState[svc] = { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 };
-  } else {
-    sharedState = {
-      A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 },
-      B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0 }
+// ── 初始化資料庫 ──────────────────────────────────
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS queue_state (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS phone_binding (
+      phone TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // 初始化預設狀態
+  const existing = await pool.query("SELECT key FROM queue_state WHERE key = 'main'");
+  if (existing.rows.length === 0) {
+    const defaultState = {
+      state: {
+        A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null },
+        B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null }
+      },
+      cfg: {
+        systemName: '排隊系統',
+        services: {
+          A: { name: '心願瓶DIY', prefix: 'A', minutes: 12, concurrent: 5 },
+          B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15, concurrent: 2 }
+        }
+      }
     };
+    await pool.query("INSERT INTO queue_state (key, value) VALUES ('main', $1)", [defaultState]);
   }
-  res.json({ success: true });
+  console.log('DB initialized');
+}
+
+// ── 讀寫資料庫 ────────────────────────────────────
+async function getState() {
+  const res = await pool.query("SELECT value FROM queue_state WHERE key = 'main'");
+  return res.rows[0].value;
+}
+async function saveState(data) {
+  await pool.query(
+    "UPDATE queue_state SET value = $1, updated_at = NOW() WHERE key = 'main'",
+    [data]
+  );
+}
+async function getPhoneUserId(phone) {
+  const res = await pool.query('SELECT user_id FROM phone_binding WHERE phone = $1', [phone]);
+  return res.rows[0]?.user_id || null;
+}
+async function savePhoneBinding(phone, userId) {
+  await pool.query(
+    'INSERT INTO phone_binding (phone, user_id) VALUES ($1, $2) ON CONFLICT (phone) DO UPDATE SET user_id = $2',
+    [phone, userId]
+  );
+}
+
+// ── API ──────────────────────────────────────────
+app.get('/api/state', async (req, res) => {
+  try {
+    const data = await getState();
+    res.json(data);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+app.post('/api/state', async (req, res) => {
+  try {
+    const data = await getState();
+    if (req.body.state) data.state = req.body.state;
+    if (req.body.cfg) data.cfg = req.body.cfg;
+    await saveState(data);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/issue', async (req, res) => {
+  try {
+    const { svc, name, userId, phone, partySize } = req.body;
+    if (!svc || !name) return res.status(400).json({ error: '缺少參數' });
+    const data = await getState();
+    data.state[svc].lastIssued++;
+    const num = data.state[svc].lastIssued;
+    const size = Math.min(Math.max(parseInt(partySize) || 1, 1), 6);
+    data.state[svc].queue.push({ num, name, userId: userId || '—', phone: phone || null, partySize: size });
+    await saveState(data);
+    res.json({ success: true, num });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/call-next', async (req, res) => {
+  try {
+    const { svc, cabin } = req.body;
+    const data = await getState();
+    const q = data.state[svc].queue;
+    if (q.length === 0) return res.status(400).json({ error: '無人候位' });
+    const entry = q.shift();
+    data.state[svc].current = entry.num;
+    data.state[svc].lastCalledEntry = { ...entry, cabin: cabin || null };
+    data.state[svc].servedToday++;
+    data.state[svc].history.unshift(entry.num);
+    if (data.state[svc].history.length > 10) data.state[svc].history.pop();
+    await saveState(data);
+    res.json({ success: true, called: { ...entry, cabin: cabin || null } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/cancel', async (req, res) => {
+  try {
+    const { svc, num } = req.body;
+    const data = await getState();
+    data.state[svc].queue = data.state[svc].queue.filter(q => q.num !== num);
+    await saveState(data);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/noshow', async (req, res) => {
+  try {
+    const { svc, num, requeue } = req.body;
+    const data = await getState();
+    const q = data.state[svc].queue;
+    let entry = q.find(e => e.num === num);
+    data.state[svc].queue = q.filter(e => e.num !== num);
+    if (!entry) entry = data.state[svc].lastCalledEntry || null;
+    if (requeue && entry) {
+      if (svc === 'A') {
+        const newQ = [...data.state[svc].queue];
+        newQ.splice(1, 0, entry);
+        data.state[svc].queue = newQ;
+      } else {
+        data.state[svc].queue.push(entry);
+      }
+    }
+    await saveState(data);
+    res.json({ success: true, entry: entry || null });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/reset', async (req, res) => {
+  try {
+    const { svc } = req.body;
+    const data = await getState();
+    const empty = { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null };
+    if (svc) {
+      data.state[svc] = empty;
+    } else {
+      data.state = { A: { ...empty }, B: { ...empty } };
+    }
+    await saveState(data);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── LINE Webhook ──────────────────────────────────
 app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
   const events = req.body.events || [];
@@ -98,7 +181,7 @@ app.post('/webhook', async (req, res) => {
 
       // 手機號碼綁定
       if (/^09\d{8}$/.test(text)) {
-        phoneToUserId[text] = userId;
+        await savePhoneBinding(text, userId);
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
           messages: [{ type: 'text', text: `🫙 心願瓶DIY｜✅ 手機號碼 ${text} 綁定成功！結帳後工作人員會幫您登記候位，輪到您時我們會主動通知您 🙏` }]
@@ -106,93 +189,66 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 查詢塔羅牌叫號狀況
-      const isTarotQuery = ['查詢塔羅目前叫號', '塔羅目前叫號', '查詢塔羅', '塔羅叫號', '🔮查詢'].includes(text);
+      // 查詢塔羅牌
+      const isTarotQuery = ['查詢塔羅目前叫號','塔羅目前叫號','查詢塔羅','塔羅叫號','🔮查詢'].includes(text);
       if (isTarotQuery) {
-        const q = sharedState.B;
-        const cfg = sharedCfg.services.B;
+        const data = await getState();
+        const q = data.state.B;
+        const cfg = data.cfg.services.B;
         const cur = q.current > 0 ? cfg.prefix + String(q.current).padStart(3,'0') : '尚未開始';
         const waiting = q.queue.length;
         const estMins = waiting > 0 ? Math.max(0, Math.ceil(waiting / 2) - 1) * cfg.minutes : 0;
         const estText = waiting === 0 ? '目前無人候位' : estMins > 0 ? `預估等待約 ${estMins} 分鐘` : '即將輪到下一位';
-        const replyMsg = `🔮 塔羅牌占卜｜目前叫號查詢
-
-現在服務號：${cur}
-等候人數：${waiting} 人
-${estText}
-
-輪到您時我們會主動通知您 🙏`;
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
-          messages: [{ type: 'text', text: replyMsg }]
+          messages: [{ type: 'text', text: `🔮 塔羅牌占卜｜目前叫號查詢\n\n現在服務號：${cur}\n等候人數：${waiting} 人\n${estText}\n\n輪到您時我們會主動通知您 🙏` }]
         }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
         continue;
       }
 
-      // 查詢心願瓶叫號狀況
-      const isWishQuery = ['查詢心願瓶目前叫號', '心願瓶目前叫號', '查詢心願瓶', '心願瓶叫號', '🫙查詢'].includes(text);
+      // 查詢心願瓶
+      const isWishQuery = ['查詢心願瓶目前叫號','心願瓶目前叫號','查詢心願瓶','心願瓶叫號','🫙查詢'].includes(text);
       if (isWishQuery) {
-        const q = sharedState.A;
-        const cfg = sharedCfg.services.A;
+        const data = await getState();
+        const q = data.state.A;
+        const cfg = data.cfg.services.A;
         const cur = q.current > 0 ? cfg.prefix + String(q.current).padStart(3,'0') : '尚未開始';
         const waiting = q.queue.length;
         const totalCap = q.queue.reduce((sum, e) => sum + (e.partySize || 1), 0);
         const estMins = waiting > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * cfg.minutes : 0;
         const estText = waiting === 0 ? '目前無人候位' : estMins > 0 ? `預估等待約 ${estMins} 分鐘` : '即將輪到下一組';
-        const replyMsg = `🫙 心願瓶DIY｜目前叫號查詢
-
-現在服務號：${cur}
-等候組數：${waiting} 組
-${estText}
-
-輪到您時我們會主動通知您 🙏`;
         await axios.post('https://api.line.me/v2/bot/message/reply', {
           replyToken: event.replyToken,
-          messages: [{ type: 'text', text: replyMsg }]
+          messages: [{ type: 'text', text: `🫙 心願瓶DIY｜目前叫號查詢\n\n現在服務號：${cur}\n等候組數：${waiting} 組\n${estText}\n\n輪到您時我們會主動通知您 🙏` }]
         }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }).catch(()=>{});
         continue;
       }
     }
   }
 });
-app.post('/api/register', (req, res) => {
+
+app.post('/api/register', async (req, res) => {
   const { userId, name } = req.body;
   if (!userId) return res.status(400).json({ error: '缺少 userId' });
-  userIdMap[userId] = { userId, name };
   res.json({ success: true });
 });
+
 app.post('/api/line-notify', async (req, res) => {
-  const { userId, phone, name, message } = req.body;
-  if (!message) return res.status(400).json({ error: '缺少 message' });
-  const targetId = (userId && userId !== '—') ? userId : phoneToUserId[phone];
-  if (!targetId) return res.status(404).json({ error: '找不到對應的 LINE 帳號' });
   try {
+    const { userId, phone, name, message } = req.body;
+    if (!message) return res.status(400).json({ error: '缺少 message' });
+    let targetId = (userId && userId !== '—') ? userId : null;
+    if (!targetId && phone) targetId = await getPhoneUserId(phone);
+    if (!targetId) return res.status(404).json({ error: '找不到對應的 LINE 帳號' });
     await axios.post('https://api.line.me/v2/bot/message/push', {
       to: targetId,
       messages: [{ type: 'text', text: message }]
     }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } });
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// ── 頁面路由 ──────────────────────────────────────
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -509,7 +565,7 @@ async function leaveQueue() {
   const numStr = myTicket.svc === 'B'
     ? cfg.services.B.prefix + String(myTicket.num).padStart(3,'0')
     : cfg.services.A.prefix + String(myTicket.num).padStart(3,'0');
-  if (!confirm(\`確定要取消 \${svcName} \${numStr} 號的候位嗎？\n取消後無法恢復。\`)) return;
+  if (!confirm(\`確定要取消 \${svcName} \${numStr} 號的候位嗎？\\n取消後無法恢復。\`)) return;
   try {
     await fetch(BACKEND_URL + '/api/cancel', {
       method: 'POST',
@@ -529,7 +585,7 @@ async function leaveQueue() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: cancelUserId,
-          message: \`✅ \${cancelName} 您好！您的\${svcName} \${numStr} 號候位已成功取消。\n\n如有需要歡迎重新取號，感謝您！\`
+          message: \`✅ \${cancelName} 您好！您的\${svcName} \${numStr} 號候位已成功取消。\\n\\n如有需要歡迎重新取號，感謝您！\`
         })
       }).catch(()=>{});
     }
@@ -998,7 +1054,7 @@ async function staffTakeNumber() {
   const name = document.getElementById('staff-inp-name').value.trim();
   const phone = document.getElementById('staff-inp-phone').value.trim();
   if (!name) { showToast('請輸入客人姓名'); return; }
-  if (!phone || !/^09\d{8}$/.test(phone)) { showToast('請輸入客人手機號碼'); return; }
+  if (!phone || !/^09\\d{8}$/.test(phone)) { showToast('請輸入客人手機號碼'); return; }
   try {
     const res = await fetch(BACKEND_URL + '/api/issue', {
       method: 'POST',
@@ -1968,8 +2024,9 @@ setInterval(syncFromServer, 4000);
 </body>
 </html>
 `); });
-
 app.get('/', (req, res) => res.send('排隊系統後端運作中'));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+initDB().then(() => {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+});
