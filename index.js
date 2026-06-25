@@ -441,6 +441,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2081,6 +2082,7 @@ function render() {
   const q = state.A.queue;
   const cur = state.A.current;
   const mins = cfg.services.A.minutes;
+  const inProg = state.A.inProgress || [];
   const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const inProgressCap = inProg.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const availableNow = Math.max(0, 6 - inProgressCap);
