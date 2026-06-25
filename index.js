@@ -202,6 +202,11 @@ app.post('/api/call-next', async (req, res) => {
     const data = await getState();
     const q = data.state[svc].queue;
     if (q.length === 0) return res.status(400).json({ error: '無人候位' });
+    // 檢查容量上限
+    if (svc === 'A') {
+      const inProgCap = (data.state.A.inProgress || []).reduce((s, e) => s + (e.partySize || 1), 0);
+      if (inProgCap >= 6) return res.status(400).json({ error: '製作區已滿，請等待製作完成後再叫號' });
+    }
     const entry = q.shift();
     data.state[svc].current = entry.num;
     data.state[svc].lastCalledEntry = { ...entry, cabin: cabin || null };
@@ -314,6 +319,10 @@ app.post('/api/noshow', async (req, res) => {
         }
       }
       // 重排
+      // 心願瓶：若在製作中則移除
+      if (svc === 'A' && data.state[svc].inProgress) {
+        data.state[svc].inProgress = data.state[svc].inProgress.filter(e => e.num !== num);
+      }
       if (svc === 'A') {
         const newQ = [...data.state[svc].queue];
         newQ.splice(1, 0, entry);
@@ -334,7 +343,7 @@ app.post('/api/reset', async (req, res) => {
     const empty = { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null };
     if (svc) {
       if (svc === 'A') {
-        data.state[svc] = { ...empty, inProgress: [] };
+        data.state[svc] = { ...empty, inProgress: [], lastNotifiedNum: 0 };
       } else {
         data.state[svc] = { ...empty,
           cabins: { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } }
@@ -430,6 +439,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -801,8 +811,8 @@ async function syncFromServer() {
 
 // Show loading overlay if server doesn't respond in 2 seconds
 loadingTimer = setTimeout(() => {
-  const overlay = document.getElementById('loading-overlay');
-  if (overlay && !serverReady) overlay.style.display = 'flex';
+  const loadingOverlay = document.getElementById('loading-overlay');
+  if (loadingOverlay && !serverReady) overlay.style.display = 'flex';
 }, 2000);
 
 async function sendLineNotify(userId, name, message) {
@@ -955,10 +965,20 @@ function renderStatus() {
   const statusNumStr = cur > 0 ? fmt(svc, cur) : '—';
   const el = document.getElementById('status-cur');
   el.textContent = statusNumStr; el.className = 'big-num color-' + svc;
-  document.getElementById('status-label').textContent = cur > 0 ? \`請 \${numStr} 號前往\` : '等待服務';
+  document.getElementById('status-label').textContent = svc === 'B'
+    ? (cur > 0 ? '最新叫號' : '等待服務')
+    : (cur > 0 ? \`請 \${statusNumStr} 號前往\` : '等待服務');
   document.getElementById('status-waiting').textContent = q.length;
-  const concurrent = svc === 'A' ? 5 : 2;
-  const estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / concurrent) - 1) * mins : 0;
+  // 等待時間計算
+  let estMins = 0;
+  if (svc === 'A') {
+    const totalCapA = q.reduce((s, e) => s + (e.partySize || 1), 0);
+    const inProgCapA = (state.A.inProgress || []).reduce((s, e) => s + (e.partySize || 1), 0);
+    const overCapA = Math.max(0, inProgCapA + totalCapA - 6);
+    estMins = q.length > 0 ? Math.ceil(overCapA / 6) * mins : 0;
+  } else {
+    estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
+  }
   document.getElementById('status-est').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將輪到') : '—';
   const pct = Math.min(100, Math.round(q.length / 20 * 100));
   document.getElementById('status-bar').style.width = pct + '%';
@@ -1728,8 +1748,8 @@ async function cancelEntry(num) {
 }
 
 function lookupByPhone() {
-  const rawPhone = document.getElementById('cancel-inp-phone').value.trim();
-  const phone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
+  const lookupRawPhone = document.getElementById('cancel-inp-phone').value.trim();
+  const phone = lookupRawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
   const resultEl = document.getElementById('cancel-lookup-result');
   const btnEl = document.getElementById('cancel-confirm-btn');
 
@@ -1759,8 +1779,8 @@ function lookupByPhone() {
 }
 
 async function cancelByPhone() {
-  const rawPhone = document.getElementById('cancel-inp-phone').value.trim();
-  const cancelPhone = rawPhone.split('').filter(c => c >= '0' && c <= '9').join('');
+  const cancelRawPhone2 = document.getElementById('cancel-inp-phone').value.trim();
+  const cancelPhone = cancelRawPhone2.split('').filter(c => c >= '0' && c <= '9').join('');
   const entry = state.A.queue.find(e => e.phone === cancelPhone);
   if (!entry) { showToast('找不到此客人的候位'); return; }
   try {
@@ -1969,6 +1989,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
   </div>
 
   <!-- 統計 -->
+  <!-- 製作區容量 -->
+  <div class="card" id="capacity-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text3)">製作區容量</span>
+      <span style="font-size:12px;font-weight:600;color:var(--text)" id="cap-text">0 / 6 人</span>
+    </div>
+    <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+      <div id="cap-bar" style="height:100%;background:var(--sA);border-radius:3px;transition:width .3s;width:0%"></div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-title">今日狀況</div>
     <div class="stat-row"><span class="stat-label">等候組數</span><span class="stat-val" id="waiting">0</span></div>
@@ -2134,14 +2165,28 @@ function render() {
   const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const inProgressCap = inProg.reduce((sum, e) => sum + (e.partySize || 1), 0);
   const availableNow = Math.max(0, 6 - inProgressCap);
+  // 容量顯示
+  const capBar = document.getElementById('cap-bar');
+  const capText = document.getElementById('cap-text');
+  const callBtn = document.querySelector('.btn-primary');
+  if (capBar) { capBar.style.width = Math.min(100, inProgressCap / 6 * 100) + '%'; }
+  if (capText) { capText.textContent = inProgressCap + ' / 6 人'; }
+  if (capBar) { capBar.style.background = inProgressCap >= 6 ? 'var(--red)' : inProgressCap >= 4 ? 'var(--amber)' : 'var(--sA)'; }
+  // 製作區滿時禁用叫號按鈕
+  if (callBtn) {
+    callBtn.disabled = inProgressCap >= 6;
+    callBtn.style.opacity = inProgressCap >= 6 ? '0.5' : '1';
+    callBtn.title = inProgressCap >= 6 ? '製作區已滿，請等待製作完成' : '';
+  }
+
   document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
   const alreadyConfirmed = cur > 0 && inProg.find(e => e.num === cur);
   if (cur > 0) {
     const calledEntry = state.A.lastCalledEntry;
     const nameLabel = calledEntry ? calledEntry.name : '';
-    const sizeLabel = calledEntry && calledEntry.partySize > 1 ? \`（\${calledEntry.partySize} 人）\` : '';
+    const partySizeLabel = calledEntry && calledEntry.partySize > 1 ? \`（\${calledEntry.partySize} 人）\` : '';
     document.getElementById('cur-label').textContent = \`請 \${fmt(cur)} 號前往領瓶\`;
-    document.getElementById('cur-name').textContent = nameLabel + sizeLabel;
+    document.getElementById('cur-name').textContent = nameLabel + partySizeLabel;
     document.getElementById('cur-name').style.display = nameLabel ? 'block' : 'none';
     // 顯示已確認領瓶按鈕（若尚未確認）
     const pickupBtn = document.getElementById('confirm-pickup-btn');
