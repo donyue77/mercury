@@ -221,7 +221,7 @@ app.post('/api/cancel', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// 已確認領瓶 → 移入製作中
+// 已確認領瓶 → 移入製作中，從候位名單移除
 app.post('/api/confirm-pickup', async (req, res) => {
   try {
     const { num } = req.body;
@@ -233,6 +233,8 @@ app.post('/api/confirm-pickup', async (req, res) => {
     if (!data.state.A.inProgress.find(e => e.num === num)) {
       data.state.A.inProgress.push({ ...entry, startTime: Date.now() });
     }
+    // 從候位名單移除（以防還在裡面）
+    data.state.A.queue = data.state.A.queue.filter(e => e.num !== num);
     await saveState(data);
     res.json({ success: true, entry });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -396,6 +398,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
