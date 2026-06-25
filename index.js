@@ -443,6 +443,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1917,6 +1918,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
     <button class="btn btn-primary" onclick="callNext()">叫下一號 →</button>
     <button class="btn" onclick="repeatCall()">重複叫號</button>
+    <button class="btn" id="confirm-pickup-btn" onclick="confirmPickup()" style="display:none;background:var(--green-bg);color:var(--green);border-color:var(--green-b);margin-bottom:0">已確認領瓶 ✅</button>
   </div>
 
   <!-- 製作中 -->
@@ -2097,11 +2099,14 @@ function render() {
     document.getElementById('cur-name').textContent = nameLabel + sizeLabel;
     document.getElementById('cur-name').style.display = nameLabel ? 'block' : 'none';
     // 顯示已確認領瓶按鈕（若尚未確認）
-    document.getElementById('confirm-pickup-btn').style.display = alreadyConfirmed ? 'none' : 'flex';
+    const pickupBtn = document.getElementById('confirm-pickup-btn');
+    if (pickupBtn) pickupBtn.style.display = alreadyConfirmed ? 'none' : 'flex';
   } else {
     document.getElementById('cur-label').textContent = '等待開始';
-    document.getElementById('cur-name').style.display = 'none';
-    document.getElementById('confirm-pickup-btn').style.display = 'none';
+    const curNameEl = document.getElementById('cur-name');
+    if (curNameEl) curNameEl.style.display = 'none';
+    const pickupBtn2 = document.getElementById('confirm-pickup-btn');
+    if (pickupBtn2) pickupBtn2.style.display = 'none';
   }
 
   // 製作中欄位
