@@ -235,6 +235,8 @@ app.post('/api/confirm-pickup', async (req, res) => {
     }
     // 從候位名單移除（以防還在裡面）
     data.state.A.queue = data.state.A.queue.filter(e => e.num !== num);
+    // 清空目前服務號
+    data.state.A.current = 0;
     await saveState(data);
     res.json({ success: true, entry });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -398,6 +400,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
