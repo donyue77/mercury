@@ -50,7 +50,7 @@ async function initDB() {
   if (existing.rows.length === 0) {
     const defaultState = {
       state: {
-        A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null },
+        A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null, inProgress: [] },
         B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null,
              cabins: { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } } }
       },
@@ -67,8 +67,14 @@ async function initDB() {
     // 遷移：確保 cabins 欄位存在
     const data = existing.rows[0].value;
     let updated = false;
-    if (!data.state.B.cabins) {
+    if (!data.state.A.inProgress) data.state.A.inProgress = [];
+  if (!data.state.B.cabins) {
       data.state.B.cabins = { sun: { current: 0, lastEntry: null }, moon: { current: 0, lastEntry: null } };
+      updated = true;
+    }
+    // 確保心願瓶有 inProgress 欄位
+    if (!data.state.A.inProgress) {
+      data.state.A.inProgress = [];
       updated = true;
     }
     if (!data.state.B.cabins.sun) {
@@ -98,6 +104,7 @@ async function getState() {
   const res = await pool.query("SELECT value FROM queue_state WHERE key = 'main'");
   const data = res.rows[0].value;
   // 確保 cabins 欄位永遠存在
+  if (!data.state.A.inProgress) data.state.A.inProgress = [];
   if (!data.state.B.cabins) {
     data.state.B.cabins = { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } };
   }
@@ -214,6 +221,41 @@ app.post('/api/cancel', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// 已確認領瓶 → 移入製作中
+app.post('/api/confirm-pickup', async (req, res) => {
+  try {
+    const { num } = req.body;
+    const data = await getState();
+    // 從 lastCalledEntry 取得資料
+    const entry = data.state.A.lastCalledEntry;
+    if (!entry || entry.num !== num) return res.status(404).json({ error: '找不到此號碼' });
+    // 加入製作中（避免重複）
+    if (!data.state.A.inProgress.find(e => e.num === num)) {
+      data.state.A.inProgress.push({ ...entry, startTime: Date.now() });
+    }
+    await saveState(data);
+    res.json({ success: true, entry });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// 製作完成 → 移除製作中，回傳下一位候位資訊
+app.post('/api/complete-making', async (req, res) => {
+  try {
+    const { num } = req.body;
+    const data = await getState();
+    const entry = data.state.A.inProgress.find(e => e.num === num);
+    if (!entry) return res.status(404).json({ error: '找不到此號碼' });
+    data.state.A.inProgress = data.state.A.inProgress.filter(e => e.num !== num);
+    // 計算目前製作中佔用人數
+    const inProgressCap = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
+    const availableSlots = 6 - inProgressCap;
+    // 找出候位中下一組
+    const nextInQueue = data.state.A.queue.length > 0 ? data.state.A.queue[0] : null;
+    await saveState(data);
+    res.json({ success: true, nextInQueue, availableSlots });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/noshow', async (req, res) => {
   try {
     const { svc, num, requeue } = req.body;
@@ -257,9 +299,13 @@ app.post('/api/reset', async (req, res) => {
     const data = await getState();
     const empty = { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null };
     if (svc) {
-      data.state[svc] = { ...empty,
+      if (svc === 'A') {
+        data.state[svc] = { ...empty, inProgress: [] };
+      } else {
+        data.state[svc] = { ...empty,
           cabins: { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } }
         };
+      }
     } else {
       data.state = { A: { ...empty }, B: { ...empty } };
     }
@@ -350,6 +396,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -1869,6 +1916,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <button class="btn" onclick="repeatCall()">重複叫號</button>
   </div>
 
+  <!-- 製作中 -->
+  <div class="card" id="in-progress-card" style="display:none">
+    <div class="card-title" style="margin-bottom:10px">🫙 正在進行心願瓶製作中</div>
+    <div id="in-progress-list"></div>
+  </div>
+
   <!-- 統計 -->
   <div class="card">
     <div class="card-title">今日狀況</div>
@@ -1943,6 +1996,41 @@ async function callNext() {
   } catch(e) { showToast('網路錯誤'); }
 }
 
+async function confirmPickup() {
+  const cur = state.A.current;
+  if (!cur) { showToast('尚未叫號'); return; }
+  try {
+    const res = await fetch(BACKEND_URL + '/api/confirm-pickup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num: cur })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast(data.error || '確認失敗'); return; }
+    await syncFromServer();
+    document.getElementById('confirm-pickup-btn').style.display = 'none';
+    showToast(\`\${fmt(cur)} 號已確認領瓶，開始製作\`);
+  } catch(e) { showToast('網路錯誤'); }
+}
+
+async function completeMaking(num) {
+  const entry = state.A.inProgress?.find(e => e.num === num);
+  if (!entry) return;
+  try {
+    const res = await fetch(BACKEND_URL + '/api/complete-making', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num })
+    });
+    const data = await res.json();
+    await syncFromServer();
+    // 通知候位下一組準備回場
+    if (data.nextInQueue && data.availableSlots > 0) {
+      sendLineNotify(data.nextInQueue.userId, data.nextInQueue.phone, data.nextInQueue.name,
+        \`🫙 心願瓶DIY｜⏰ \${data.nextInQueue.name} 您好！前方即將有空位，請準備回到現場，稍後工作人員將叫您的號碼 🙏\`);
+    }
+    showToast(\`\${fmt(num)} 號製作完成\`);
+  } catch(e) { showToast('網路錯誤'); }
+}
+
 async function repeatCall() {
   const cur = state.A.current;
   if (!cur) { showToast('尚未開始叫號'); return; }
@@ -1993,7 +2081,11 @@ function render() {
   const cur = state.A.current;
   const mins = cfg.services.A.minutes;
   const totalCap = q.reduce((sum, e) => sum + (e.partySize || 1), 0);
+  const inProgressCap = inProg.reduce((sum, e) => sum + (e.partySize || 1), 0);
+  const availableNow = Math.max(0, 6 - inProgressCap);
   document.getElementById('cur-num').textContent = cur > 0 ? fmt(cur) : '—';
+  const inProg = state.A.inProgress || [];
+  const alreadyConfirmed = cur > 0 && inProg.find(e => e.num === cur);
   if (cur > 0) {
     const calledEntry = state.A.lastCalledEntry;
     const nameLabel = calledEntry ? calledEntry.name : '';
@@ -2001,13 +2093,38 @@ function render() {
     document.getElementById('cur-label').textContent = \`請 \${fmt(cur)} 號前往領瓶\`;
     document.getElementById('cur-name').textContent = nameLabel + sizeLabel;
     document.getElementById('cur-name').style.display = nameLabel ? 'block' : 'none';
+    // 顯示已確認領瓶按鈕（若尚未確認）
+    document.getElementById('confirm-pickup-btn').style.display = alreadyConfirmed ? 'none' : 'flex';
   } else {
     document.getElementById('cur-label').textContent = '等待開始';
     document.getElementById('cur-name').style.display = 'none';
+    document.getElementById('confirm-pickup-btn').style.display = 'none';
+  }
+
+  // 製作中欄位
+  const inProgressCard = document.getElementById('in-progress-card');
+  const inProgressList = document.getElementById('in-progress-list');
+  if (inProg.length > 0) {
+    inProgressCard.style.display = 'block';
+    inProgressList.innerHTML = inProg.map(entry => {
+      return \`<div class="staff-entry">
+        <div class="staff-num">\${fmt(entry.num)}</div>
+        <div class="staff-info">
+          <div class="staff-name">\${entry.name}</div>
+          <div class="staff-meta">\${entry.partySize || 1} 人</div>
+        </div>
+        <div class="staff-btns">
+          <button class="btn btn-sm" style="color:var(--green);border-color:var(--green-b);background:var(--green-bg);white-space:nowrap"
+            onclick="completeMaking(\${entry.num})">製作完成 🆗</button>
+        </div>
+      </div>\`;
+    }).join('');
+  } else {
+    inProgressCard.style.display = 'none';
   }
   document.getElementById('served').textContent = state.A.servedToday;
   document.getElementById('waiting').textContent = q.length + (totalCap > q.length ? \` (共 \${totalCap} 人)\` : '');
-  const estA = q.length > 0 ? Math.max(0, Math.ceil(totalCap / 5) - 1) * mins : 0;
+  const estA = q.length > 0 ? Math.max(0, Math.ceil(Math.max(0, totalCap - availableNow) / 6) ) * mins : 0;
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
