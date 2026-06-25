@@ -50,7 +50,7 @@ async function initDB() {
   if (existing.rows.length === 0) {
     const defaultState = {
       state: {
-        A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null, inProgress: [] },
+        A: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null, inProgress: [], lastNotifiedNum: 0 },
         B: { current: 0, lastIssued: 0, queue: [], history: [], servedToday: 0, lastCalledEntry: null,
              cabins: { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } } }
       },
@@ -68,6 +68,7 @@ async function initDB() {
     const data = existing.rows[0].value;
     let updated = false;
     if (!data.state.A.inProgress) data.state.A.inProgress = [];
+  if (data.state.A.lastNotifiedNum === undefined) data.state.A.lastNotifiedNum = 0;
   if (!data.state.B.cabins) {
       data.state.B.cabins = { sun: { current: 0, lastEntry: null }, moon: { current: 0, lastEntry: null } };
       updated = true;
@@ -105,6 +106,7 @@ async function getState() {
   const data = res.rows[0].value;
   // 確保 cabins 欄位永遠存在
   if (!data.state.A.inProgress) data.state.A.inProgress = [];
+  if (data.state.A.lastNotifiedNum === undefined) data.state.A.lastNotifiedNum = 0;
   if (!data.state.B.cabins) {
     data.state.B.cabins = { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } };
   }
@@ -237,8 +239,17 @@ app.post('/api/confirm-pickup', async (req, res) => {
     data.state.A.queue = data.state.A.queue.filter(e => e.num !== num);
     // 清空目前服務號
     data.state.A.current = 0;
+    // 計算確認後剩餘容量，決定是否通知下一組
+    const capNow = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
+    const slotsNow = 6 - capNow;
+    const nextQ = data.state.A.queue.length > 0 ? data.state.A.queue[0] : null;
+    const lastNotified = data.state.A.lastNotifiedNum || 0;
+    const shouldNotifyNext = slotsNow > 0 && slotsNow < 6 && nextQ && nextQ.num !== lastNotified;
+    if (shouldNotifyNext) {
+      data.state.A.lastNotifiedNum = nextQ.num;
+    }
     await saveState(data);
-    res.json({ success: true, entry });
+    res.json({ success: true, entry, nextInQueue: nextQ, shouldNotifyNext });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -257,11 +268,25 @@ app.post('/api/complete-making', async (req, res) => {
     // 計算完成後的剩餘容量
     const capAfter = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
     const slotsAfter = 6 - capAfter;
-    // 只有當「原本沒有空位，完成後才有空位」才通知下一組
-    const shouldNotify = slotsBefore <= 0 && slotsAfter > 0;
+    // 只有當「完成後空位從無到有」且「尚未通知過這個號碼」才通知
     const nextInQueue = data.state.A.queue.length > 0 ? data.state.A.queue[0] : null;
+    const lastNotified = data.state.A.lastNotifiedNum || 0;
+    const shouldNotify = slotsAfter > 0 && slotsAfter < 6 && nextInQueue && nextInQueue.num !== lastNotified;
+    if (shouldNotify) {
+      data.state.A.lastNotifiedNum = nextInQueue.num;
+    }
     await saveState(data);
     res.json({ success: true, nextInQueue, availableSlots: slotsAfter, shouldNotify });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// 重置通知記錄（每次新叫號時呼叫）
+app.post('/api/reset-notify', async (req, res) => {
+  try {
+    const data = await getState();
+    data.state.A.lastNotifiedNum = 0;
+    await saveState(data);
+    res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -405,6 +430,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -2004,6 +2030,10 @@ async function callNext() {
     const entry = data.called;
     sendLineNotify(entry.userId, entry.phone, entry.name,
       \`🫙 心願瓶DIY｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請至領瓶處，謝謝！\`);
+    // 重置通知記錄，讓新的一輪可以重新通知
+    await fetch(BACKEND_URL + '/api/reset-notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }
+    }).catch(() => {});
     await syncFromServer();
     showToast('已叫號：' + fmt(entry.num));
   } catch(e) { showToast('網路錯誤'); }
@@ -2020,11 +2050,10 @@ async function confirmPickup() {
     const data = await res.json();
     if (!data.success) { showToast(data.error || '確認失敗'); return; }
     await syncFromServer();
-    // 確認領瓶後，才通知下一組準備回場
-    if (state.A.queue.length > 0) {
-      const next = state.A.queue[0];
-      sendLineNotify(next.userId, next.phone, next.name,
-        \`🫙 心願瓶DIY｜⏰ \${next.name} 您好！前方已有空位，您是下一位（\${fmt(next.num)} 號），請提前回到現場準備，稍後工作人員將叫您的號碼 🙏\`);
+    // 只有後端判斷需要通知才發送，避免重複
+    if (data.shouldNotifyNext && data.nextInQueue) {
+      sendLineNotify(data.nextInQueue.userId, data.nextInQueue.phone, data.nextInQueue.name,
+        \`🫙 心願瓶DIY｜⏰ \${data.nextInQueue.name} 您好！前方已有空位，您是下一位（\${fmt(data.nextInQueue.num)} 號），請提前回到現場準備，稍後工作人員將叫您的號碼 🙏\`);
     }
     document.getElementById('confirm-pickup-btn').style.display = 'none';
     showToast(\`\${fmt(cur)} 號已確認領瓶，開始製作\`);
