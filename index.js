@@ -57,9 +57,10 @@ async function initDB() {
       cfg: {
         systemName: '排隊系統',
         services: {
-          A: { name: '心願瓶DIY', prefix: 'A', minutes: 12, concurrent: 5 },
+          A: { name: '心願瓶DIY', prefix: 'W', minutes: 15, concurrent: 6 },
           B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15, concurrent: 2 }
-        }
+        },
+        tarotNotifyMins: 10
       }
     };
     await pool.query("INSERT INTO queue_state (key, value) VALUES ('main', $1)", [defaultState]);
@@ -68,6 +69,7 @@ async function initDB() {
     const data = existing.rows[0].value;
     let updated = false;
     if (!data.state.A.inProgress) data.state.A.inProgress = [];
+  if (data.cfg.tarotNotifyMins === undefined) data.cfg.tarotNotifyMins = 10;
   if (data.state.A.lastNotifiedNum === undefined) data.state.A.lastNotifiedNum = 0;
   if (!data.state.B.cabins) {
       data.state.B.cabins = { sun: { current: 0, lastEntry: null }, moon: { current: 0, lastEntry: null } };
@@ -106,6 +108,7 @@ async function getState() {
   const data = res.rows[0].value;
   // 確保 cabins 欄位永遠存在
   if (!data.state.A.inProgress) data.state.A.inProgress = [];
+  if (data.cfg.tarotNotifyMins === undefined) data.cfg.tarotNotifyMins = 10;
   if (data.state.A.lastNotifiedNum === undefined) data.state.A.lastNotifiedNum = 0;
   if (!data.state.B.cabins) {
     data.state.B.cabins = { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } };
@@ -420,6 +423,9 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
+
+
 
 
 
@@ -1234,7 +1240,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         <div class="card-title">服務 B</div>
         <div class="setting-row"><span class="setting-label">名稱</span><input class="setting-input" style="width:120px" id="set-nameB"/></div>
         <div class="setting-row"><span class="setting-label">號碼前綴</span><input class="setting-input" id="set-prefixB" maxlength="3"/></div>
-        <div class="setting-row" style="border:none"><span class="setting-label">每號時間（分）</span><input class="setting-input" type="number" id="set-timeB" min="1" max="120"/></div>
+        <div class="setting-row"><span class="setting-label">每號時間（分）</span><input class="setting-input" type="number" id="set-timeB" min="1" max="120"/></div>
+        <div class="setting-row" style="border:none">
+          <span class="setting-label">自動提醒時間（分）</span>
+          <input class="setting-input" type="number" id="set-tarot-notify" min="1" max="60"/>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px;grid-column:1/-1">叫號後幾分鐘自動提醒下一位準備回場</div>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">管理密碼</div>
@@ -1460,6 +1471,7 @@ function loadSettingsUI() {
   document.getElementById('set-nameB').value = cfg.services.B.name || '';
   document.getElementById('set-prefixB').value = cfg.services.B.prefix || '';
   document.getElementById('set-timeB').value = cfg.services.B.minutes || 20;
+  document.getElementById('set-tarot-notify').value = cfg.tarotNotifyMins || 10;
 }
 async function saveSettings() {
   cfg.systemName = document.getElementById('set-system-name').value.trim() || '排隊系統';
@@ -1469,6 +1481,7 @@ async function saveSettings() {
   cfg.services.B.name = document.getElementById('set-nameB').value.trim() || '服務B';
   cfg.services.B.prefix = document.getElementById('set-prefixB').value.trim() || 'T';
   cfg.services.B.minutes = parseInt(document.getElementById('set-timeB').value) || 20;
+  cfg.tarotNotifyMins = parseInt(document.getElementById('set-tarot-notify').value) || 10;
   const newPwd = document.getElementById('set-pwd').value.trim();
   if (newPwd) { localStorage.setItem('staff_pwd', newPwd); document.getElementById('set-pwd').value = ''; }
   await fetch(BACKEND_URL + '/api/state', {
@@ -2662,7 +2675,7 @@ const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 const CABIN_ID = 'sun';
 const OTHER_CABIN_ID = 'moon';
 const CABIN_NAME = '☀️ 太陽包廂';
-const AUTO_NOTIFY_MS = 10 * 60 * 1000; // 10 分鐘
+let AUTO_NOTIFY_MS = (cfg.tarotNotifyMins || 10) * 60 * 1000;
 
 let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0, lastCalledEntry: null, cabins: { sun: {current:0,lastEntry:null}, moon: {current:0,lastEntry:null} } } };
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
@@ -2681,7 +2694,7 @@ async function syncFromServer() {
     const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
-    if (data.cfg) cfg = data.cfg;
+    if (data.cfg) { cfg = data.cfg; AUTO_NOTIFY_MS = (cfg.tarotNotifyMins || 10) * 60 * 1000; }
     render();
   } catch(e) {}
 }
@@ -2707,7 +2720,7 @@ function scheduleAutoNotify(nextEntry) {
   autoTargetNum = nextEntry.num;
   if (bar) {
     bar.style.display = 'block';
-    text.textContent = \`將於 10 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
+    text.textContent = \`將於 \${cfg.tarotNotifyMins || 10} 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
   }
   autoTimer = setTimeout(async () => {
     await syncFromServer();
@@ -2981,7 +2994,7 @@ const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 const CABIN_ID = 'moon';
 const OTHER_CABIN_ID = 'sun';
 const CABIN_NAME = '🌙 月亮包廂';
-const AUTO_NOTIFY_MS = 10 * 60 * 1000; // 10 分鐘
+let AUTO_NOTIFY_MS = (cfg.tarotNotifyMins || 10) * 60 * 1000;
 
 let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0, lastCalledEntry: null, cabins: { sun: {current:0,lastEntry:null}, moon: {current:0,lastEntry:null} } } };
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
@@ -3000,7 +3013,7 @@ async function syncFromServer() {
     const res = await fetch(BACKEND_URL + '/api/state', { cache: 'no-store' });
     const data = await res.json();
     if (data.state) state = data.state;
-    if (data.cfg) cfg = data.cfg;
+    if (data.cfg) { cfg = data.cfg; AUTO_NOTIFY_MS = (cfg.tarotNotifyMins || 10) * 60 * 1000; }
     render();
   } catch(e) {}
 }
@@ -3026,7 +3039,7 @@ function scheduleAutoNotify(nextEntry) {
   autoTargetNum = nextEntry.num;
   if (bar) {
     bar.style.display = 'block';
-    text.textContent = \`將於 10 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
+    text.textContent = \`將於 \${cfg.tarotNotifyMins || 10} 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
   }
   autoTimer = setTimeout(async () => {
     await syncFromServer();
