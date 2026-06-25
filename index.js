@@ -486,6 +486,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2233,7 +2234,6 @@ function render() {
     </div>\`;
   }
   const displayQ = q.slice(0, 10);
-  cons const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
   html += displayQ.map((entry, i) => {
     const cumCapBeforeWb = inProgressCap + q.slice(0, i).reduce((sum, e) => sum + (e.partySize || 1), 0);
