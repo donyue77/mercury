@@ -485,6 +485,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2212,17 +2213,18 @@ function render() {
 
   const list = document.getElementById('queue-list');
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
-  // 顯示已叫號但未到場的提示
-  const calledNum = state.A.current;
+  // 顯示已叫號但未到場的提示：叫號後尚未確認領瓶，且不在製作中才顯示
+  const lastCalled = state.A.lastCalledEntry;
+  const calledNum = lastCalled?.num || 0;
   let html = '';
-  if (calledNum > 0 && !q.find(e => e.num === calledNum)) {
-    // 找到叫號記錄（從history找name）
-    const calledStr = fmt(calledNum);
+  const isInProgress = calledNum > 0 && inProg.find(e => e.num === calledNum);
+  const isInQueue = calledNum > 0 && q.find(e => e.num === calledNum);
+  if (calledNum > 0 && !isInProgress && !isInQueue) {
     html += \`<div class="staff-entry" style="background:var(--amber-bg);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;border:0.5px solid var(--amber-b)">
       <div class="staff-num" style="color:var(--amber)">\${fmt(calledNum)}</div>
       <div class="staff-info">
-        <div class="staff-name" style="color:var(--amber)">剛剛叫號，等待中</div>
-        <div class="staff-meta">若客人未到場可標記</div>
+        <div class="staff-name" style="color:var(--amber)">\${lastCalled?.name || ''} 叫號後未到場</div>
+        <div class="staff-meta">可標記未到場重排至第 2 位</div>
       </div>
       <div class="staff-btns">
         <button class="btn btn-sm" style="color:var(--amber);border-color:var(--amber-b);background:#fff"
@@ -2231,6 +2233,7 @@ function render() {
     </div>\`;
   }
   const displayQ = q.slice(0, 10);
+  cons const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
   html += displayQ.map((entry, i) => {
     const cumCapBeforeWb = inProgressCap + q.slice(0, i).reduce((sum, e) => sum + (e.partySize || 1), 0);
