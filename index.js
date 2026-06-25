@@ -487,6 +487,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2213,7 +2214,6 @@ function render() {
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
-  if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
   // 顯示已叫號但未到場的提示：叫號後尚未確認領瓶，且不在製作中才顯示
   const lastCalled = state.A.lastCalledEntry;
   const calledNum = lastCalled?.num || 0;
@@ -2232,6 +2232,10 @@ function render() {
           onclick="noShowCurrent()">未到場</button>
       </div>
     </div>\`;
+  }
+  if (q.length === 0) {
+    list.innerHTML = html || '<span class="empty">目前無人候位</span>';
+    return;
   }
   const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
