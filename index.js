@@ -450,6 +450,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1998,11 +1999,6 @@ async function callNext() {
     sendLineNotify(entry.userId, entry.phone, entry.name,
       \`🫙 心願瓶DIY｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請至領瓶處，謝謝！\`);
     await syncFromServer();
-    if (state.A.queue.length > 0) {
-      const next = state.A.queue[0];
-      sendLineNotify(next.userId, next.phone, next.name,
-        \`🫙 心願瓶DIY｜⏰ \${next.name} 您好！您是下一位（\${fmt(next.num)} 號），請提前回到現場準備。\`);
-    }
     showToast('已叫號：' + fmt(entry.num));
   } catch(e) { showToast('網路錯誤'); }
 }
@@ -2018,6 +2014,12 @@ async function confirmPickup() {
     const data = await res.json();
     if (!data.success) { showToast(data.error || '確認失敗'); return; }
     await syncFromServer();
+    // 確認領瓶後，才通知下一組準備回場
+    if (state.A.queue.length > 0) {
+      const next = state.A.queue[0];
+      sendLineNotify(next.userId, next.phone, next.name,
+        \`🫙 心願瓶DIY｜⏰ \${next.name} 您好！前方已有空位，您是下一位（\${fmt(next.num)} 號），請提前回到現場準備，稍後工作人員將叫您的號碼 🙏\`);
+    }
     document.getElementById('confirm-pickup-btn').style.display = 'none';
     showToast(\`\${fmt(cur)} 號已確認領瓶，開始製作\`);
   } catch(e) { showToast('網路錯誤'); }
