@@ -478,6 +478,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1862,9 +1863,8 @@ async function register() {
     const waiting = state.A.queue.length;
     const totalCapAfter = state.A.queue.reduce((sum, e) => sum + (e.partySize || 1), 0);
     const est = Math.max(0, Math.ceil(totalCapAfter / 5) - 1) * cfg.services.A.minutes;
-    const waitMsg = totalCapAfter <= 5 ? '目前正在服務中，請稍候片刻！' : \`預計約 \${est} 分鐘後輪到您。\`;
     sendLineNotify(cleanPhone, name,
-      \`🫙 心願瓶DIY｜✅ \${name} 您好！已成功登記候位，您的號碼是 \${numStr}（\${partySize} 人）。\${waitMsg}輪到您時我們會再通知您 🙏\`);
+      \`🫙 心願瓶DIY｜✅ \${name} 您好！已成功登記候位，您的號碼是 \${numStr}（\${partySize} 人），輪到您時我們會再通知您，感謝耐心等候 🙏\`);
     document.getElementById('success-num').textContent = numStr;
     document.getElementById('success-sub').textContent = \`已傳送 LINE 通知給 \${name}\`;
     document.getElementById('success-banner').classList.add('show');
