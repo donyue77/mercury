@@ -483,6 +483,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -1814,9 +1815,10 @@ function renderStatus() {
   const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
   let listHtml = displayQ.map((entry, i) => {
-    const capSoFarQ = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
-    const estEntry = Math.max(0, Math.ceil(capSoFarQ / 5) - 1) * mins || mins;
-    const posLabel = i === 0 ? '下一組' : '第 ' + (i + 1) + ' 組，約 ' + estEntry + ' 分鐘';
+    const cumCapBefore = q.slice(0, i).reduce((sum, e) => sum + (e.partySize || 1), 0);
+    const batchesBefore = Math.floor(cumCapBefore / 6);
+    const estEntry = batchesBefore * mins;
+    const posLabel = i === 0 ? '下一組' : (estEntry === 0 ? '即將輪到' : '約 ' + estEntry + ' 分鐘');
     const sizeLabel = (entry.partySize || 1) + ' 人';
     const isLast = i === displayQ.length - 1 && remaining === 0;
     return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;' + (isLast ? '' : 'border-bottom:0.5px solid var(--border)') + '">'
@@ -2175,7 +2177,8 @@ function render() {
   }
   document.getElementById('served').textContent = state.A.servedToday;
   document.getElementById('waiting').textContent = q.length + (totalCap > q.length ? \` (共 \${totalCap} 人)\` : '');
-  const estA = q.length > 0 ? Math.max(0, Math.ceil(Math.max(0, totalCap - availableNow) / 6) ) * mins : 0;
+  const overCapacity = Math.max(0, inProgressCap + totalCap - 6);
+  const estA = q.length > 0 ? Math.ceil(overCapacity / 6) * mins : 0;
   document.getElementById('est').textContent = q.length > 0 ? (estA > 0 ? '約 ' + estA + ' 分鐘' : '即將輪到') : '—';
 
   const list = document.getElementById('queue-list');
@@ -2201,10 +2204,11 @@ function render() {
   const displayQ = q.slice(0, 10);
   const remaining = q.length - 10;
   html += displayQ.map((entry, i) => {
-    const listCapSoFar = q.slice(0, i + 1).reduce((sum, e) => sum + (e.partySize || 1), 0);
-    const est = Math.max(0, Math.ceil(listCapSoFar / 5) - 1) * mins || mins;
+    const cumCapBeforeWb = inProgressCap + q.slice(0, i).reduce((sum, e) => sum + (e.partySize || 1), 0);
+    const batchesBeforeWb = Math.floor(cumCapBeforeWb / 6);
+    const est = batchesBeforeWb * mins;
     const sizeLabel = (entry.partySize || 1) + ' 人';
-    const posLabel = i === 0 ? '下一組' : \`第 \${i + 1} 組，約 \${est} 分鐘\`;
+    const posLabel = i === 0 ? '下一組' : (est === 0 ? '即將輪到' : \`約 \${est} 分鐘\`);
     return \`<div class="staff-entry">
       <div class="staff-num">\${fmt(entry.num)}</div>
       <div class="staff-info">
