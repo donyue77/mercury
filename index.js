@@ -249,14 +249,19 @@ app.post('/api/complete-making', async (req, res) => {
     const data = await getState();
     const entry = data.state.A.inProgress.find(e => e.num === num);
     if (!entry) return res.status(404).json({ error: '找不到此號碼' });
+    // 計算完成前的剩餘容量
+    const capBefore = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
+    const slotsBefore = 6 - capBefore;
+    // 移除該組
     data.state.A.inProgress = data.state.A.inProgress.filter(e => e.num !== num);
-    // 計算目前製作中佔用人數
-    const inProgressCap = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
-    const availableSlots = 6 - inProgressCap;
-    // 找出候位中下一組
+    // 計算完成後的剩餘容量
+    const capAfter = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
+    const slotsAfter = 6 - capAfter;
+    // 只有當「原本沒有空位，完成後才有空位」才通知下一組
+    const shouldNotify = slotsBefore <= 0 && slotsAfter > 0;
     const nextInQueue = data.state.A.queue.length > 0 ? data.state.A.queue[0] : null;
     await saveState(data);
-    res.json({ success: true, nextInQueue, availableSlots });
+    res.json({ success: true, nextInQueue, availableSlots: slotsAfter, shouldNotify });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -400,6 +405,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -2035,8 +2041,8 @@ async function completeMaking(num) {
     });
     const data = await res.json();
     await syncFromServer();
-    // 通知候位下一組準備回場
-    if (data.nextInQueue && data.availableSlots > 0) {
+    // 只有在「原本滿了、完成後才有空位」才通知，避免重複
+    if (data.shouldNotify && data.nextInQueue) {
       sendLineNotify(data.nextInQueue.userId, data.nextInQueue.phone, data.nextInQueue.name,
         \`🫙 心願瓶DIY｜⏰ \${data.nextInQueue.name} 您好！前方即將有空位，請準備回到現場，稍後工作人員將叫您的號碼 🙏\`);
     }
