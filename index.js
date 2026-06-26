@@ -521,6 +521,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2715,7 +2716,7 @@ const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 const CABIN_ID = 'sun';
 const OTHER_CABIN_ID = 'moon';
 const CABIN_NAME = '☀️ 太陽包廂';
-let AUTO_NOTIFY_MS = (cfg.tarotNotifyMins || 10) * 60 * 1000;
+let AUTO_NOTIFY_MS = 10 * 60 * 1000; // 預設10分鐘，同步後更新
 
 let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0, lastCalledEntry: null, cabins: { sun: {current:0,lastEntry:null}, moon: {current:0,lastEntry:null} } } };
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
@@ -3034,7 +3035,7 @@ const BACKEND_URL = 'https://mercury-gcac.onrender.com';
 const CABIN_ID = 'moon';
 const OTHER_CABIN_ID = 'sun';
 const CABIN_NAME = '🌙 月亮包廂';
-let AUTO_NOTIFY_MS = (cfg.tarotNotifyMins || 10) * 60 * 1000;
+let AUTO_NOTIFY_MS = 10 * 60 * 1000; // 預設10分鐘，同步後更新
 
 let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0, lastCalledEntry: null, cabins: { sun: {current:0,lastEntry:null}, moon: {current:0,lastEntry:null} } } };
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
