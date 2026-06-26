@@ -162,8 +162,40 @@ app.post('/api/issue', async (req, res) => {
     data.state[svc].lastIssued++;
     const num = data.state[svc].lastIssued;
     const size = Math.min(Math.max(parseInt(partySize) || 1, 1), 6);
+    const prefix = data.cfg.services[svc].prefix;
+    const numStr = prefix + String(num).padStart(3, '0');
+    const svcName = data.cfg.services[svc].name;
+    const svcIcon = svc === 'B' ? '🔮' : '🫙';
     data.state[svc].queue.push({ num, name, userId: userId || '—', phone: phone || null, partySize: size });
     await saveState(data);
+    // 後端直接發送取號確認通知
+    const targetId = (userId && userId !== '—') ? userId : null;
+    let targetPhone = phone || null;
+    if (!targetId && !targetPhone) {
+      // 無法通知，但仍成功取號
+    } else {
+      const message = svc === 'B'
+        ? `${svcIcon} ${svcName}｜${name} 您好！您已成功取得 ${numStr} 號，輪到您前會再通知您，感謝耐心等候 🙏`
+        : `${svcIcon} ${svcName}｜✅ ${name} 您好！已成功登記候位，您的號碼是 ${numStr}（${size} 人），輪到您時我們會再通知您，感謝耐心等候 🙏`;
+      try {
+        if (targetId) {
+          await axios.post('https://api.line.me/v2/bot/message/push', {
+            to: targetId,
+            messages: [{ type: 'text', text: message }]
+          }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } });
+        } else if (targetPhone) {
+          const uid = await getPhoneUserId(targetPhone);
+          if (uid) {
+            await axios.post('https://api.line.me/v2/bot/message/push', {
+              to: uid,
+              messages: [{ type: 'text', text: message }]
+            }, { headers: { Authorization: `Bearer ${LINE_TOKEN}` } });
+          }
+        }
+      } catch(notifyErr) {
+        console.error('取號通知發送失敗:', notifyErr.message);
+      }
+    }
     res.json({ success: true, num });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -423,6 +455,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
@@ -3184,6 +3217,998 @@ setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>`); });
+app.get('/manual', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>點晶礦活動｜排隊叫號系統使用手冊</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --text:#0f172a;
+  --text2:#475569;
+  --text3:#94a3b8;
+  --border:#e2e8f0;
+  --blue:#1d4ed8;
+  --blue2:#3b82f6;
+  --blue-bg:#eff6ff;
+  --blue-light:#dbeafe;
+  --teal:#0f766e;
+  --teal-bg:#f0fdfa;
+  --purple:#6d28d9;
+  --purple-bg:#f5f3ff;
+  --green:#15803d;
+  --green-bg:#f0fdf4;
+  --green-light:#dcfce7;
+  --amber:#92400e;
+  --amber-bg:#fffbeb;
+  --amber-light:#fef3c7;
+  --red:#b91c1c;
+  --red-bg:#fff5f5;
+  --red-light:#fee2e2;
+  --r:12px;--r-sm:8px;--r-xs:4px;
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC','PingFang TC',sans-serif;background:var(--bg);color:var(--text);line-height:1.65;font-size:15px}
+
+/* ── NAV ── */
+.nav{position:sticky;top:0;z-index:200;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:960px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:16px;height:56px}
+.nav-logo{font-size:15px;font-weight:800;color:var(--blue);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.nav-scroll{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
+.nav-scroll::-webkit-scrollbar{display:none}
+.nav-btn{padding:6px 14px;border-radius:99px;font-size:13px;font-weight:500;color:var(--text2);white-space:nowrap;cursor:pointer;border:none;background:none;text-decoration:none;transition:all .15s;display:inline-block}
+.nav-btn:hover{background:var(--blue-light);color:var(--blue)}
+.nav-btn.active{background:var(--blue);color:#fff}
+
+/* ── LAYOUT ── */
+.wrap{max-width:960px;margin:0 auto;padding:0 20px 100px}
+
+/* ── COVER ── */
+.cover{border-radius:20px;background:linear-gradient(140deg,#0c1445 0%,#1a3aad 40%,#2e5ce5 70%,#4f83f0 100%);padding:56px 40px 48px;margin:32px 0 48px;color:#fff;position:relative;overflow:hidden}
+.cover::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat}
+.cover-inner{position:relative;z-index:1}
+.cover-tag{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:99px;padding:4px 14px;font-size:12px;font-weight:600;letter-spacing:.08em;margin-bottom:20px}
+.cover h1{font-size:36px;font-weight:900;letter-spacing:-.03em;line-height:1.15;margin-bottom:10px}
+.cover-sub{font-size:16px;opacity:.75;margin-bottom:36px}
+.cover-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:520px}
+.cover-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:var(--r);padding:18px 20px;display:flex;gap:14px;align-items:flex-start;transition:background .2s}
+.cover-card:hover{background:rgba(255,255,255,.2)}
+.cover-card-icon{font-size:26px;flex-shrink:0;margin-top:2px}
+.cover-card-title{font-size:15px;font-weight:700;margin-bottom:3px}
+.cover-card-sub{font-size:12px;opacity:.65;line-height:1.5}
+
+/* ── CHAPTER HERO ── */
+.chapter-hero{border-radius:16px;padding:36px 32px;margin:48px 0 32px;color:#fff;position:relative;overflow:hidden}
+.chapter-hero.wb{background:linear-gradient(135deg,#134e4a,#0f766e,#0d9488)}
+.chapter-hero.tarot{background:linear-gradient(135deg,#1e1b4b,#4338ca,#6d28d9)}
+.chapter-hero::after{content:'';position:absolute;right:-20px;bottom:-20px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.06)}
+.chapter-hero-inner{position:relative;z-index:1}
+.chapter-num{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;opacity:.6;margin-bottom:8px}
+.chapter-hero h2{font-size:28px;font-weight:900;margin-bottom:6px}
+.chapter-hero p{font-size:14px;opacity:.75;max-width:520px}
+.chapter-hero-badges{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.chapter-badge{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:4px 12px;font-size:12px;font-weight:500}
+
+/* ── SECTION ── */
+.section{margin-bottom:40px}
+.section-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.sub-title{font-size:15px;font-weight:700;color:var(--text);margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+.sub-title span{width:3px;height:16px;background:var(--blue);border-radius:2px;display:inline-block}
+
+/* ── URL BADGE ── */
+.url-badge{display:inline-flex;align-items:center;gap:8px;background:var(--blue-bg);border:1px solid var(--blue-light);color:var(--blue);border-radius:var(--r-sm);padding:8px 14px;font-size:13px;font-weight:500;margin-bottom:20px;word-break:break-all}
+.url-badge::before{content:'🔗';flex-shrink:0}
+
+/* ── FLOW ── */
+.flow{display:flex;flex-direction:column;gap:0;padding-left:4px}
+.flow-item{display:flex;gap:0;position:relative}
+.flow-connector{display:flex;flex-direction:column;align-items:center;width:44px;flex-shrink:0}
+.flow-dot{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;z-index:1;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.flow-line{width:2px;flex:1;min-height:16px;background:linear-gradient(to bottom,var(--border),transparent)}
+.flow-body{padding:6px 0 24px 16px;flex:1}
+.flow-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.flow-desc{font-size:13px;color:var(--text2);line-height:1.6}
+.flow-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-top:6px}
+/* colours */
+.fc-blue .flow-dot{background:var(--blue-light)}
+.fc-green .flow-dot{background:var(--green-light)}
+.fc-amber .flow-dot{background:var(--amber-light)}
+.fc-red .flow-dot{background:var(--red-light)}
+.fc-purple .flow-dot{background:#ede9fe}
+.ft-blue{background:var(--blue-bg);color:var(--blue)}
+.ft-green{background:var(--green-bg);color:var(--green)}
+.ft-amber{background:var(--amber-bg);color:var(--amber)}
+.ft-red{background:var(--red-bg);color:var(--red)}
+
+/* ── STEPS ── */
+.steps{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.step-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;gap:14px;align-items:flex-start;transition:box-shadow .15s}
+.step-item:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.step-text{}
+.step-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.step-detail{font-size:13px;color:var(--text2);line-height:1.6}
+.step-example{margin-top:6px;background:var(--blue-bg);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--blue);font-style:italic}
+
+/* ── NOTE ── */
+.note{border-radius:var(--r-sm);padding:14px 16px;margin:14px 0;font-size:13px;line-height:1.7;display:flex;gap:10px;align-items:flex-start}
+.note-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.note.info{background:var(--blue-bg);border-left:3px solid var(--blue2);color:#1e40af}
+.note.success{background:var(--green-bg);border-left:3px solid #22c55e;color:#166534}
+.note.warn{background:var(--amber-bg);border-left:3px solid #f59e0b;color:var(--amber)}
+.note.danger{background:var(--red-bg);border-left:3px solid #ef4444;color:var(--red)}
+
+/* ── TABLE ── */
+.tbl-wrap{border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin:12px 0}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{background:#1e3a8a;color:#fff;padding:11px 16px;text-align:left;font-size:13px;font-weight:600}
+.tbl td{padding:11px 16px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border);vertical-align:top;line-height:1.6}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:nth-child(even) td{background:#f8fafc}
+.tbl td:first-child{font-weight:600;white-space:nowrap;color:#1e40af}
+
+/* ── BUTTON DEMO ── */
+.btn-demo{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;padding:16px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)}
+.btn-demo-label{width:100%;font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.b{display:inline-flex;align-items:center;gap:5px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:700;border:1.5px solid;cursor:default}
+.b-primary{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.b-secondary{background:#fff;color:#334155;border-color:#cbd5e1}
+.b-green{background:#dcfce7;color:#15803d;border-color:#86efac}
+.b-amber{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+.b-red{background:#fee2e2;color:#b91c1c;border-color:#fca5a5}
+
+/* ── SCENARIO BOX ── */
+.scenario{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:16px 0}
+.scenario-head{background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;padding:12px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.scenario-body{padding:16px}
+.scenario-row{display:flex;gap:10px;margin-bottom:10px;font-size:13px;color:var(--text2);align-items:flex-start}
+.scenario-row:last-child{margin-bottom:0}
+.scenario-row b{color:var(--text);white-space:nowrap;min-width:60px}
+.msg-bubble{background:#f1f5f9;border-radius:12px 12px 12px 4px;padding:8px 12px;font-size:12px;color:var(--text);line-height:1.6;border:1px solid var(--border);margin-top:6px}
+.msg-bubble.line{background:#06c755;color:#fff;border-color:#06c755;border-radius:12px 12px 4px 12px}
+
+/* ── CAPACITY ── */
+.cap-visual{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin:14px 0}
+.cap-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em}
+.cap-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.cap-row:last-child{margin-bottom:0}
+.cap-emoji{font-size:16px;width:24px;text-align:center}
+.cap-label{font-size:13px;color:var(--text2);width:100px;flex-shrink:0}
+.cap-track{flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden}
+.cap-fill{height:100%;border-radius:5px;transition:width .4s}
+.cap-green{background:linear-gradient(90deg,#22c55e,#4ade80)}
+.cap-amber{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.cap-red{background:linear-gradient(90deg,#ef4444,#f87171)}
+.cap-count{font-size:12px;font-weight:700;min-width:50px;text-align:right;color:var(--text2)}
+
+/* ── URL TABLE ── */
+.url-list{display:grid;gap:10px;margin:14px 0}
+.url-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:4px;transition:border-color .15s}
+.url-card:hover{border-color:var(--blue2)}
+.url-card-role{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
+.url-card-name{font-size:15px;font-weight:700;color:var(--text)}
+.url-card-url{font-size:12px;color:var(--blue);word-break:break-all;font-family:monospace}
+
+/* ── FAQ ── */
+.faq{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.faq-item{border:1px solid var(--border);border-radius:var(--r);background:var(--card);overflow:hidden}
+.faq-q{padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;user-select:none;transition:background .15s}
+.faq-q:hover{background:var(--bg)}
+.faq-chevron{color:var(--text3);font-size:16px;transition:transform .25s;flex-shrink:0}
+.faq-item.open .faq-chevron{transform:rotate(180deg)}
+.faq-a{display:none;padding:0 16px 14px;font-size:13px;color:var(--text2);line-height:1.75}
+.faq-item.open .faq-a{display:block}
+
+/* ── SOP ── */
+.sop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+.sop-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:0}
+.sop-phase{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px}
+.sop-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2)}
+.sop-item:last-child{border-bottom:none}
+.sop-n{width:22px;height:22px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+
+/* ── TWO-COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.cabin-card{border-radius:var(--r);padding:18px;border:1px solid}
+.cabin-sun{background:#fffbeb;border-color:#fde68a}
+.cabin-moon{background:#eff6ff;border-color:#bfdbfe}
+.cabin-emoji{font-size:32px;margin-bottom:10px}
+.cabin-name{font-size:17px;font-weight:800;margin-bottom:4px}
+.cabin-url{font-size:11px;font-family:monospace;word-break:break-all}
+
+/* ── NOTIFY TABLE ── */
+.notify-list{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.notify-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:start}
+.notify-when{font-size:12px;font-weight:700;color:var(--text2);background:var(--bg);border-radius:99px;padding:3px 10px;white-space:nowrap;align-self:start;margin-top:1px}
+.notify-msg{font-size:13px;color:var(--text);line-height:1.65}
+
+/* ── DIVIDER ── */
+.divider{border:none;border-top:2px solid var(--border);margin:48px 0;position:relative}
+.divider::after{content:attr(data-label);position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--bg);padding:4px 16px;font-size:12px;color:var(--text3);font-weight:600;letter-spacing:.06em}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .cover{padding:36px 24px 32px}
+  .cover h1{font-size:26px}
+  .cover-cards{grid-template-columns:1fr}
+  .chapter-hero{padding:28px 22px}
+  .chapter-hero h2{font-size:22px}
+  .sop-grid{grid-template-columns:1fr}
+  .two-col{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">🔮 使用手冊</div>
+    <div class="nav-scroll">
+      <a class="nav-btn" href="#overview">總覽</a>
+      <a class="nav-btn" href="#wb">🫙 心願瓶</a>
+      <a class="nav-btn" href="#checkout">結帳登記</a>
+      <a class="nav-btn" href="#leadbottle">領瓶叫號</a>
+      <a class="nav-btn" href="#tarot">🔮 塔羅牌</a>
+      <a class="nav-btn" href="#liff">客人取號</a>
+      <a class="nav-btn" href="#cabin">包廂叫號</a>
+      <a class="nav-btn" href="#faq">FAQ</a>
+      <a class="nav-btn" href="#sop">SOP</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- COVER -->
+<div class="cover" id="overview">
+  <div class="cover-inner">
+    <div class="cover-tag">✦ 工作人員使用手冊</div>
+    <h1>點晶礦活動<br>排隊叫號系統</h1>
+    <p class="cover-sub">即時候位 × LINE 通知 × 雙服務管理<br>請依照您的崗位，閱讀對應章節</p>
+    <div class="cover-cards">
+      <div class="cover-card">
+        <div class="cover-card-icon">🫙</div>
+        <div>
+          <div class="cover-card-title">第一章｜心願瓶 DIY</div>
+          <div class="cover-card-sub">結帳櫃檯 — 登記候位<br>領瓶處 — 叫號與製作追蹤</div>
+        </div>
+      </div>
+      <div class="cover-card">
+        <div class="cover-card-icon">🔮</div>
+        <div>
+          <div class="cover-card-title">第二章｜塔羅牌占卜</div>
+          <div class="cover-card-sub">客人 LINE 自行取號<br>☀️ 太陽 & 🌙 月亮包廂叫號</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 系統總覽 -->
+<div class="section">
+  <div class="section-title">⚙️ 系統頁面速查</div>
+  <div class="url-list">
+    <div class="url-card">
+      <div class="url-card-role">🫙 心願瓶</div>
+      <div class="url-card-name">結帳櫃檯</div>
+      <div class="url-card-url">https://mercury-gcac.onrender.com/staff/checkout</div>
+    </div>
+    <div class="url-card">
+      <div class="url-card-role">🫙 心願瓶</div>
+      <div class="url-card-name">領瓶處</div>
+      <div class="url-card-url">https://mercury-gcac.onrender.com/staff/wishbottle</div>
+    </div>
+    <div class="url-card">
+      <div class="url-card-role">🔮 塔羅牌</div>
+      <div class="url-card-name">☀️ 太陽包廂</div>
+      <div class="url-card-url">https://mercury-gcac.onrender.com/staff/tarot-sun</div>
+    </div>
+    <div class="url-card">
+      <div class="url-card-role">🔮 塔羅牌</div>
+      <div class="url-card-name">🌙 月亮包廂</div>
+      <div class="url-card-url">https://mercury-gcac.onrender.com/staff/tarot-moon</div>
+    </div>
+    <div class="url-card">
+      <div class="url-card-role">⚙️ 管理員</div>
+      <div class="url-card-name">管理後台（重置 / 統計 / 設定）</div>
+      <div class="url-card-url">https://mercury-gcac.onrender.com/staff</div>
+    </div>
+    <div class="url-card">
+      <div class="url-card-role">📱 客人</div>
+      <div class="url-card-name">LIFF 取號頁面（需在 LINE 內開啟）</div>
+      <div class="url-card-url">https://liff.line.me/2006903949-Sbmw12xl</div>
+    </div>
+  </div>
+  <div class="note info"><span class="note-icon">💡</span>建議每個崗位將對應網址加入書籤。活動前請提早 <b>5 分鐘</b>開啟頁面喚醒伺服器，首次載入約需 30–50 秒，頁面顯示「系統啟動中」為正常現象。</div>
+</div>
+
+<hr class="divider" data-label="第一章">
+
+<!-- ═══════════════ 心願瓶 ═══════════════ -->
+<div id="wb">
+  <div class="chapter-hero wb">
+    <div class="chapter-hero-inner">
+      <div class="chapter-num">第一章</div>
+      <h2>🫙 心願瓶 DIY 服務</h2>
+      <p>結帳櫃檯負責登記候位與名單管理，領瓶處負責叫號、確認領瓶與製作流程追蹤。</p>
+      <div class="chapter-hero-badges">
+        <span class="chapter-badge">結帳櫃檯</span>
+        <span class="chapter-badge">領瓶處</span>
+        <span class="chapter-badge">號碼前綴 W</span>
+        <span class="chapter-badge">容量上限 6 人</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 心願瓶整體流程 -->
+<div class="section">
+  <div class="section-title">心願瓶整體服務流程</div>
+  <div class="flow">
+    <div class="flow-item fc-blue">
+      <div class="flow-connector"><div class="flow-dot">💳</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人結帳完成</div>
+        <div class="flow-desc">客人完成購物結帳，前往結帳櫃檯辦理心願瓶 DIY 候位登記。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-blue">
+      <div class="flow-connector"><div class="flow-dot">📝</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">結帳櫃檯工作人員登記候位</div>
+        <div class="flow-desc">輸入姓氏、選擇稱謂（先生 / 小姐）、人數（1–6 人）、手機號碼。<br>系統自動取號並發送 LINE 確認通知。</div>
+        <span class="flow-tag ft-blue">結帳櫃檯操作</span>
+      </div>
+    </div>
+    <div class="flow-item fc-green">
+      <div class="flow-connector"><div class="flow-dot">📱</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人收到 LINE 候位確認通知</div>
+        <div class="flow-desc">客人在 LINE 看到「已成功登記候位，號碼 W003（2 人），輪到您時我們會再通知您」。<br>客人可在附近自由活動，等待叫號通知即可。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-blue">
+      <div class="flow-connector"><div class="flow-dot">📢</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">領瓶處工作人員叫號</div>
+        <div class="flow-desc">工作人員評估製作區容量，按「叫下一號 →」叫出候位第一組。<br>客人立即收到 LINE 叫號通知。</div>
+        <span class="flow-tag ft-blue">領瓶處操作</span>
+      </div>
+    </div>
+    <div class="flow-item fc-green">
+      <div class="flow-connector"><div class="flow-dot">✅</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人到場，工作人員確認領瓶</div>
+        <div class="flow-desc">客人前往領瓶處，工作人員確認後按「已確認領瓶 ✅」。<br>該組移入「正在進行心願瓶製作中」列表，叫號區清空。</div>
+        <span class="flow-tag ft-green">製作開始</span>
+      </div>
+    </div>
+    <div class="flow-item fc-amber">
+      <div class="flow-connector"><div class="flow-dot">🫙</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">進行心願瓶製作</div>
+        <div class="flow-desc">工作人員陪同製作。若後方還有候位客人，可視情況按「提醒」通知下一組慢慢回場。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-green">
+      <div class="flow-connector"><div class="flow-dot">🆗</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">製作完成，按「製作完成 🆗」</div>
+        <div class="flow-desc">工作人員協助蓋瓶、貼封口後，在製作中列表對應的組別按下「製作完成 🆗」，完成本組服務，可繼續叫下一號。</div>
+        <span class="flow-tag ft-green">服務完成 ＋1</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 結帳櫃檯 ── -->
+<div id="checkout" class="section">
+  <div class="section-title">📋 結帳櫃檯操作</div>
+  <div class="url-badge">mercury-gcac.onrender.com/staff/checkout</div>
+
+  <div class="sub-title"><span></span>登記候位步驟</div>
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <div class="step-title">輸入客人姓氏</div>
+        <div class="step-detail">在「請輸入姓氏」欄位輸入客人姓氏，系統會自動組合成完整稱謂。</div>
+        <div class="step-example">範例：輸入「陳」→ 稱謂將顯示為「陳先生」</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <div class="step-title">選擇先生 / 小姐</div>
+        <div class="step-detail">點選右側「先生」或「小姐」按鈕，選中的按鈕會變為藍色。預設為「先生」。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <div class="step-title">選擇本組人數</div>
+        <div class="step-detail">點選 1–6 人按鈕，選中的按鈕會變為藍色。人數影響製作區容量計算與等待時間預估。</div>
+        <div class="step-example">一家三口選「3 人」，系統計算等待時間時會納入人數</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        <div class="step-title">輸入手機號碼</div>
+        <div class="step-detail">格式為 09xxxxxxxx（10 碼），用於發送 LINE 候位通知與叫號通知。</div>
+        <div class="step-example">若客人無 LINE 或不方便提供，可填寫 0900000000 仍可正常登記，但不會收到通知</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div class="step-text">
+        <div class="step-title">按下「登記候位」按鈕</div>
+        <div class="step-detail">確認資料無誤後按此按鈕（請勿按 Enter，需明確點擊按鈕）。<br>系統自動取號，客人收到 LINE 確認通知，表單自動清空。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note success">
+    <span class="note-icon">✅</span>
+    <div><b>登記成功後，客人收到的 LINE 通知：</b><div class="msg-bubble line">🫙 心願瓶DIY｜✅ 陳先生 您好！已成功登記候位，您的號碼是 W003（2 人），輪到您時我們會再通知您，感謝耐心等候 🙏</div></div>
+  </div>
+
+  <div class="sub-title"><span></span>目前候位名單</div>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:12px">登記欄位正下方即時顯示候位名單，頁面每 2 秒自動更新。</p>
+  <div class="tbl-wrap"><table class="tbl">
+    <tr><th>欄位</th><th>說明</th></tr>
+    <tr><td>號碼</td><td>W001、W002、W003…（W 為心願瓶前綴）</td></tr>
+    <tr><td>姓名</td><td>陳先生、林小姐（含稱謂）</td></tr>
+    <tr><td>人數與順序</td><td>3 人｜下一組 / 第 2 組，約 15 分鐘 / 即將輪到</td></tr>
+    <tr><td>取消按鈕</td><td>直接取消該組候位（僅前 10 組顯示）</td></tr>
+  </table></div>
+
+  <div class="sub-title"><span></span>使用情境：客人臨時想取消</div>
+  <div class="scenario">
+    <div class="scenario-head">📌 情境：客人登記後想取消候位</div>
+    <div class="scenario-body">
+      <div class="scenario-row"><b>候位名單前 10 組</b>直接在名單旁按「取消」按鈕，跳出確認視窗後即取消。</div>
+      <div class="scenario-row"><b>超過第 10 組：</b>使用頁面下方的「手機號碼查詢取消」功能：</div>
+    </div>
+  </div>
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <div class="step-title">輸入手機號碼</div>
+        <div class="step-detail">在下方取消欄位輸入 09xxxxxxxx，系統邊輸入邊即時搜尋候位名單。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <div class="step-title">確認查詢結果</div>
+        <div class="step-detail">找到時：紅色框顯示「找到：陳先生 W003 號 2 人」並出現「確認取消候位」按鈕。<br>找不到：顯示「查無此號碼的候位記錄」。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <div class="step-title">按「確認取消候位」</div>
+        <div class="step-detail">系統立即取消並從名單移除，欄位自動清空。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 領瓶處 ── -->
+<div id="leadbottle" class="section">
+  <div class="section-title">🫙 領瓶處操作</div>
+  <div class="url-badge">mercury-gcac.onrender.com/staff/wishbottle</div>
+
+  <div class="sub-title"><span></span>頁面按鈕一覽</div>
+  <div class="btn-demo">
+    <div class="btn-demo-label">主要按鈕</div>
+    <div class="b b-primary">叫下一號 →</div>
+    <div class="b b-secondary">重複叫號</div>
+    <div class="b b-green">已確認領瓶 ✅</div>
+    <div class="b b-amber">未到場</div>
+    <div class="b b-green">製作完成 🆗</div>
+    <div class="b b-amber">提醒</div>
+  </div>
+  <div class="tbl-wrap"><table class="tbl">
+    <tr><th>按鈕</th><th>觸發時機</th><th>動作說明</th></tr>
+    <tr><td>叫下一號 →</td><td>有人候位時</td><td>叫出候位第一組，發送 LINE 叫號通知</td></tr>
+    <tr><td>重複叫號</td><td>叫號後客人未到</td><td>再次發送叫號通知給剛叫到的號</td></tr>
+    <tr><td>已確認領瓶 ✅</td><td>客人到場（叫號後出現）</td><td>該組移入製作中，叫號區清空</td></tr>
+    <tr><td>未到場</td><td>叫號後客人長時間未現身</td><td>該組重排至候位第 2 位，客人收到通知</td></tr>
+    <tr><td>製作完成 🆗</td><td>製作完畢（製作中列表）</td><td>該組從製作中移除，服務 +1</td></tr>
+    <tr><td>提醒（候位名單）</td><td>製作中或叫號前</td><td>通知候位客人「快輪到囉，可慢慢回場」</td></tr>
+  </table></div>
+
+  <div class="sub-title"><span></span>叫號完整流程</div>
+  <div class="flow">
+    <div class="flow-item fc-blue">
+      <div class="flow-connector"><div class="flow-dot">📢</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">按「叫下一號 →」</div>
+        <div class="flow-desc">確認製作區有足夠空位後按下。叫號後頁面顯示號碼與客人姓名人數。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-red">
+      <div class="flow-connector"><div class="flow-dot">⚠️</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">若客人遲遲未到 → 按「未到場」</div>
+        <div class="flow-desc">客人重排至候位第 2 位（非末位），並收到 LINE 通知。叫號區清空，可再叫下一號。</div>
+        <span class="flow-tag ft-red">重排第 2 位</span>
+      </div>
+    </div>
+    <div class="flow-item fc-green">
+      <div class="flow-connector"><div class="flow-dot">✅</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人到場後按「已確認領瓶 ✅」</div>
+        <div class="flow-desc">該組從叫號區移入「正在進行心願瓶製作中」欄位。叫號區清空，可立即叫下一號。</div>
+        <span class="flow-tag ft-green">進入製作中</span>
+      </div>
+    </div>
+    <div class="flow-item fc-amber">
+      <div class="flow-connector"><div class="flow-dot">🔔</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">視情況在候位名單按「提醒」</div>
+        <div class="flow-desc">當製作區接近滿載，可提前通知候位客人「快輪到囉，可以慢慢回到現場等候」。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-green">
+      <div class="flow-connector"><div class="flow-dot">🆗</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">製作完成後按「製作完成 🆗」</div>
+        <div class="flow-desc">蓋瓶、貼封口完成後，在製作中列表對應組別按此。該組移除，今日已服務 +1。</div>
+        <span class="flow-tag ft-green">服務完成</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>製作區容量說明</div>
+  <div class="cap-visual">
+    <div class="cap-title">製作區容量進度條（上限 6 人）</div>
+    <div class="cap-row">
+      <div class="cap-emoji">🟢</div>
+      <div class="cap-label">1–3 人（充裕）</div>
+      <div class="cap-track"><div class="cap-fill cap-green" style="width:40%"></div></div>
+      <div class="cap-count">2 / 6</div>
+    </div>
+    <div class="cap-row">
+      <div class="cap-emoji">🟠</div>
+      <div class="cap-label">4–5 人（接近滿）</div>
+      <div class="cap-track"><div class="cap-fill cap-amber" style="width:75%"></div></div>
+      <div class="cap-count">5 / 6</div>
+    </div>
+    <div class="cap-row">
+      <div class="cap-emoji">🔴</div>
+      <div class="cap-label">6 人（滿載）</div>
+      <div class="cap-track"><div class="cap-fill cap-red" style="width:100%"></div></div>
+      <div class="cap-count">6 / 6</div>
+    </div>
+  </div>
+  <div class="note info"><span class="note-icon">💡</span>容量進度條僅供參考，系統不強制限制叫號。請依現場實際狀況彈性判斷何時叫號。</div>
+
+  <div class="sub-title"><span></span>使用情境：客人叫到後未出現</div>
+  <div class="scenario">
+    <div class="scenario-head">📌 情境：叫到 W003 號，等了 3 分鐘客人沒來</div>
+    <div class="scenario-body">
+      <div class="scenario-row"><b>①</b>可先按「重複叫號」再次發送 LINE 通知</div>
+      <div class="scenario-row"><b>②</b>若仍沒有出現，按「未到場」按鈕</div>
+      <div class="scenario-row"><b>結果：</b>W003 自動重排至候位第 2 位，客人收到通知：<div class="msg-bubble line">🫙 心願瓶DIY｜王先生 您好！叫號時暫時未見到您，已為您保留候位並重新安排至第 2 位，若需取消請至結帳櫃檯洽詢 🙏</div></div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>LINE 通知時機對照表</div>
+  <div class="notify-list">
+    <div class="notify-item">
+      <div class="notify-when">登記成功</div>
+      <div class="notify-msg">✅ 王先生 您好！已成功登記候位，號碼 W003（2 人），輪到您時再通知，感謝耐心等候 🙏</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">正式叫號</div>
+      <div class="notify-msg">📢 王先生 您好！現在叫到 W003 號，請至領瓶處，謝謝！</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">重複叫號</div>
+      <div class="notify-msg">📢 再次提醒 王先生 您好！請 W003 號前往領瓶處，謝謝！</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">未到場</div>
+      <div class="notify-msg">王先生 您好！叫號時暫時未見到您，已為您保留候位並重新安排至第 2 位，請留意後續叫號通知 🙏</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">手動提醒</div>
+      <div class="notify-msg">⏰ 王先生 您好！W003 號快輪到囉，可以慢慢回到現場等候，叫到您的號碼時我們會再通知您 🙏</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" data-label="第二章">
+
+<!-- ═══════════════ 塔羅牌 ═══════════════ -->
+<div id="tarot">
+  <div class="chapter-hero tarot">
+    <div class="chapter-hero-inner">
+      <div class="chapter-num">第二章</div>
+      <h2>🔮 塔羅牌占卜服務</h2>
+      <p>客人透過 LINE 自行掃碼取號，☀️ 太陽與 🌙 月亮兩個包廂共用同一候位序列，各自獨立叫號。</p>
+      <div class="chapter-hero-badges">
+        <span class="chapter-badge">客人自助取號</span>
+        <span class="chapter-badge">雙包廂共用序列</span>
+        <span class="chapter-badge">號碼前綴 T</span>
+        <span class="chapter-badge">自動提醒功能</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 整體流程 -->
+<div class="section">
+  <div class="section-title">塔羅牌整體服務流程</div>
+  <div class="flow">
+    <div class="flow-item fc-purple">
+      <div class="flow-connector"><div class="flow-dot">📱</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人掃描現場 QR Code</div>
+        <div class="flow-desc">在 LINE 內開啟 LIFF 頁面（非 Line 不可）。頁面顯示兩個服務選項：心願瓶 DIY 與塔羅牌占卜。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-purple">
+      <div class="flow-connector"><div class="flow-dot">🔢</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人自行取號</div>
+        <div class="flow-desc">點選「塔羅牌占卜」→ 輸入姓氏、選擇稱謂 → 取號。系統分配 T 開頭的號碼。</div>
+        <span class="flow-tag ft-blue">無需工作人員協助</span>
+      </div>
+    </div>
+    <div class="flow-item fc-green">
+      <div class="flow-connector"><div class="flow-dot">📱</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">客人收到 LINE 確認通知</div>
+        <div class="flow-desc">確認號碼並等待，可在 LIFF 頁面即時查看候位狀況、兩包廂服務號、預估等待時間。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-blue">
+      <div class="flow-connector"><div class="flow-dot">📢</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">包廂工作人員按「叫下一號 →」</div>
+        <div class="flow-desc">系統從共用候位序列叫出下一位，通知中告知客人前往哪個包廂（☀️ 或 🌙）。</div>
+        <span class="flow-tag ft-blue">包廂操作</span>
+      </div>
+    </div>
+    <div class="flow-item fc-amber">
+      <div class="flow-connector"><div class="flow-dot">⏰</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">系統自動倒數提醒下一位</div>
+        <div class="flow-desc">叫號後 N 分鐘（預設 10 分鐘），系統自動通知候位下一位「快輪到了，請回到現場附近準備」。</div>
+        <span class="flow-tag ft-amber">自動提醒</span>
+      </div>
+    </div>
+    <div class="flow-item fc-red">
+      <div class="flow-connector"><div class="flow-dot">🔄</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">若客人未到場 → 按「未到場」</div>
+        <div class="flow-desc">客人重排至候位末位（塔羅牌排末位，與心願瓶的第 2 位不同），並收到 LINE 通知。</div>
+        <span class="flow-tag ft-red">重排末位</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 客人取號 -->
+<div id="liff" class="section">
+  <div class="section-title">📱 客人端 LIFF 取號操作</div>
+  <div class="url-badge">liff.line.me/2006903949-Sbmw12xl（需在 LINE 內開啟）</div>
+
+  <div class="sub-title"><span></span>取號步驟</div>
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <div class="step-title">在 LINE 內掃描 QR Code 或點連結</div>
+        <div class="step-detail">必須在 LINE App 內開啟，一般瀏覽器無法使用（需要 LINE 登入識別）。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <div class="step-title">點選「塔羅牌占卜」服務</div>
+        <div class="step-detail">頁面頂部有兩個服務標籤，點選「塔羅牌占卜」切換至塔羅候位頁面。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <div class="step-title">輸入姓氏並選擇稱謂</div>
+        <div class="step-detail">輸入姓氏（例：陳），選擇先生或小姐。系統組合為完整稱謂（陳先生）。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        <div class="step-title">按下「取號」</div>
+        <div class="step-detail">系統分配號碼（例：T003），頁面切換為票券畫面並收到 LINE 通知。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div class="step-text">
+        <div class="step-title">等待叫號通知</div>
+        <div class="step-detail">票券頁面每 2 秒自動更新，顯示等候人數、預估等待、兩包廂各自服務號。被叫到後票券會顯示「請前往 ☀️ 太陽包廂」或「請前往 🌙 月亮包廂」。</div>
+      </div>
+    </div>
+  </div>
+  <div class="note success">
+    <span class="note-icon">✅</span>
+    <div><b>取號成功，客人收到：</b><div class="msg-bubble line">🔮 塔羅牌占卜｜陳先生 您好！您已成功取得 T003 號，輪到您前會再通知您，感謝耐心等候 🙏</div></div>
+  </div>
+
+  <div class="sub-title"><span></span>客人可在 LINE 傳送查詢指令</div>
+  <div class="tbl-wrap"><table class="tbl">
+    <tr><th>傳送指令</th><th>系統回覆內容</th></tr>
+    <tr><td>查詢塔羅目前叫號</td><td>☀️ 太陽包廂：T003 / 🌙 月亮包廂：T005 / 等候人數：4 人 / 預估等待：約 30 分鐘</td></tr>
+    <tr><td>查詢心願瓶目前叫號</td><td>目前服務號、等候組數（共幾人）、預估等待時間</td></tr>
+  </table></div>
+
+  <div class="note warn"><span class="note-icon">⚠️</span>客人若想取消塔羅牌候位，可在 LIFF 票券頁面點「取消候位」自行取消。心願瓶取消則需至結帳櫃檯處理。</div>
+</div>
+
+<!-- 包廂叫號 -->
+<div id="cabin" class="section">
+  <div class="section-title">🔮 包廂工作人員操作</div>
+  <div class="two-col">
+    <div class="cabin-card cabin-sun">
+      <div class="cabin-emoji">☀️</div>
+      <div class="cabin-name" style="color:#92400e">太陽包廂</div>
+      <div class="cabin-url" style="color:#b45309">mercury-gcac.onrender.com/staff/tarot-sun</div>
+    </div>
+    <div class="cabin-card cabin-moon">
+      <div class="cabin-emoji">🌙</div>
+      <div class="cabin-name" style="color:#1e40af">月亮包廂</div>
+      <div class="cabin-url" style="color:#1d4ed8">mercury-gcac.onrender.com/staff/tarot-moon</div>
+    </div>
+  </div>
+  <div class="note info"><span class="note-icon">💡</span>兩個包廂頁面設計完全相同，各自獨立追蹤本包廂叫出的號碼。共用同一候位序列，但各自叫號不互相干擾。</div>
+
+  <div class="sub-title"><span></span>頁面區塊說明</div>
+  <div class="tbl-wrap"><table class="tbl">
+    <tr><th>區塊</th><th>說明</th></tr>
+    <tr><td>此包廂目前服務</td><td>本包廂叫出的號碼（大字顯示）與「請 T003 號入座」提示</td></tr>
+    <tr><td>對方包廂目前服務</td><td>另一個包廂目前服務號（即時同步，每 2 秒更新）</td></tr>
+    <tr><td>今日已服務</td><td>本包廂今日完成叫號的人次</td></tr>
+    <tr><td>自動提醒倒數提示</td><td>叫號後顯示綠色「N 分鐘後自動提醒 XXX 準備回場」倒數</td></tr>
+    <tr><td>未到場提示</td><td>叫號後若客人未確認，顯示橘色未到場提示與按鈕</td></tr>
+    <tr><td>候位即時動態</td><td>等候人數、預估等待時間、候位名單（純顯示，無取消按鈕）</td></tr>
+  </table></div>
+
+  <div class="sub-title"><span></span>叫號流程</div>
+  <div class="flow">
+    <div class="flow-item fc-blue">
+      <div class="flow-connector"><div class="flow-dot">📢</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">按「叫下一號 →」</div>
+        <div class="flow-desc">從共用候位序列取出第一位，客人收到通知並告知前往本包廂。<br>頁面顯示該號碼，自動提醒倒數開始計時。</div>
+      </div>
+    </div>
+    <div class="flow-item fc-amber">
+      <div class="flow-connector"><div class="flow-dot">⏰</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">自動提醒倒數進行中</div>
+        <div class="flow-desc">頁面顯示綠色提示「將於 10 分鐘後自動提醒 陳先生（T003）準備回場」。<br>倒數結束後系統確認客人仍在候位，才自動發送 LINE 提醒。</div>
+        <span class="flow-tag ft-amber">自動執行</span>
+      </div>
+    </div>
+    <div class="flow-item fc-red">
+      <div class="flow-connector"><div class="flow-dot">🔄</div><div class="flow-line"></div></div>
+      <div class="flow-body">
+        <div class="flow-title">若客人未到場 → 按「未到場」</div>
+        <div class="flow-desc">客人重排至候位末位，系統發送 LINE 通知，自動提醒計時器重新開始計時給新的下一位。</div>
+        <span class="flow-tag ft-red">塔羅牌排末位</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>使用情境：兩個包廂協調叫號</div>
+  <div class="scenario">
+    <div class="scenario-head">📌 情境：目前候位有 T001、T002、T003 共三組</div>
+    <div class="scenario-body">
+      <div class="scenario-row"><b>太陽包廂</b>按「叫下一號」→ 叫出 T001，通知「請前往 ☀️ 太陽包廂」</div>
+      <div class="scenario-row"><b>同時</b>月亮包廂也可按「叫下一號」→ 叫出 T002，通知「請前往 🌙 月亮包廂」</div>
+      <div class="scenario-row"><b>注意：</b>兩包廂同時按叫號時，系統有 1 秒鎖防止衝突，若另一包廂剛按過，會提示「另一個包廂正在叫號，請稍後再試」。</div>
+      <div class="scenario-row"><b>結果：</b>T001 在太陽、T002 在月亮，T003 看到候位顯示「下一位」等待叫號。</div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>自動提醒時間設定</div>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:10px">自動提醒時間預設 10 分鐘，可由管理員在後台調整：</p>
+  <div class="steps">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <div class="step-title">前往管理後台</div>
+        <div class="step-detail">mercury-gcac.onrender.com/staff</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <div class="step-title">點選「設定」頁籤</div>
+        <div class="step-detail">找到「服務 B」區塊下的「自動提醒時間（分）」欄位</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <div class="step-title">輸入分鐘數後按「儲存設定」</div>
+        <div class="step-detail">包廂頁面下次同步（約 2 秒）後自動套用新設定。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>LINE 通知時機對照表</div>
+  <div class="notify-list">
+    <div class="notify-item">
+      <div class="notify-when">取號成功</div>
+      <div class="notify-msg">🔮 塔羅牌占卜｜陳先生 您好！您已成功取得 T003 號，輪到您前會再通知您，感謝耐心等候 🙏</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">正式叫號</div>
+      <div class="notify-msg">🔮 塔羅牌占卜｜📢 陳先生 您好！現在叫到 T003 號，請前往 ☀️ 太陽包廂 入座，謝謝！</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">重複叫號</div>
+      <div class="notify-msg">🔮 塔羅牌占卜｜📢 再次提醒 陳先生 您好！請 T003 號前往 ☀️ 太陽包廂 入座，謝謝！</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">自動提醒</div>
+      <div class="notify-msg">🔮 塔羅牌占卜｜⏰ 陳先生 您好！您的 T003 號快輪到了，請回到現場附近準備，感謝您 🙏</div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-when">未到場重排</div>
+      <div class="notify-msg">🔮 塔羅牌占卜｜陳先生 您好！叫號時暫時未見到您，已為您保留候位並重新安排至末位，請留意後續叫號通知 🙏</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" data-label="常見問題">
+
+<!-- FAQ -->
+<div id="faq" class="section">
+  <div class="section-title">❓ 常見問題 FAQ</div>
+
+  <div class="sub-title"><span></span>🫙 心願瓶相關</div>
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q">客人沒有 LINE，無法接收通知怎麼辦？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">仍可正常登記候位。手機號碼可填 0900000000 作為占位，系統不會寄送 LINE 通知，但候位記錄正常運作。請工作人員口頭告知客人等待，並在叫號時主動通知。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">客人說沒收到 LINE 通知怎麼辦？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">可能原因：① 客人封鎖了官方帳號 ② 手機未聯網 ③ LINE 通知權限關閉。請工作人員在領瓶處按「重複叫號」再次發送，或請客人開啟 LINE 查看。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">「已確認領瓶」按鈕不見了？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">此按鈕只在「叫號後、客人尚未確認領瓶前」顯示。若已按下確認或尚未叫號，按鈕不會出現。請先按「叫下一號 →」叫號後，再等客人到場按確認。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">今日已服務人數計算方式是？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">叫號時 +1，按下「未到場」時 -1。製作完成不額外計算。因此「已服務」代表實際叫號並確認到場的組數，可作為活動人次參考。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">客人想取消但在候位名單 10 組以後？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">使用結帳頁面下方的「輸入手機號碼取消」功能，輸入客人手機號碼後系統即時查詢，找到後點「確認取消候位」即可。</div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>🔮 塔羅牌相關</div>
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q">兩個包廂可以同時叫號嗎？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">可以，但有 1 秒鎖防止完全同步衝突。若另一個包廂剛按過叫號，會顯示「另一個包廂正在叫號，請稍後再試」。等 1 秒再按即可。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">重複叫號沒有效果？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">重複叫號只對「本包廂叫出的號碼」有效。若該號碼是另一個包廂叫出的，會顯示「此包廂尚未叫號」。請確認是本包廂叫出的號才按。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">如何調整自動提醒時間？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">前往管理後台（/staff）→ 設定頁籤 → 服務 B → 自動提醒時間（分），輸入數字後按「儲存設定」，約 2 秒後所有包廂頁面自動套用。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">客人在 LIFF 取消候位後會怎樣？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">系統立即從候位序列移除，後方號碼自動往前遞補，候位名單即時更新。工作人員不需要任何操作。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">頁面的對方包廂號碼沒有更新？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">頁面每 2 秒自動同步。若長時間未更新，請強制重新整理：Mac 按 Command+Shift+R，Windows 按 Ctrl+Shift+R。</div>
+    </div>
+  </div>
+
+  <div class="sub-title"><span></span>⚙️ 系統管理相關</div>
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q">活動開始前需要做什麼準備？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">① 提前 5 分鐘開啟所有崗位頁面喚醒伺服器 ② 前往管理後台按「重置全部」清除前次資料 ③ 確認設定頁籤中的服務名稱、號碼前綴、自動提醒時間無誤。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">如何重置系統號碼？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">前往管理後台（/staff）→ 總覽 → 重置號碼。可選擇「重置心願瓶」「重置塔羅牌」或「重置全部」，重置後所有號碼歸零，今日統計也同步清空。</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">頁面一直沒有更新怎麼辦？<span class="faq-chevron">▾</span></div>
+      <div class="faq-a">① 強制重新整理（Command+Shift+R / Ctrl+Shift+R）② 清除瀏覽器快取後重新開啟 ③ 若有 Console 出現紅色錯誤，截圖回報給系統管理員。</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider" data-label="活動當天 SOP">
+
+<!-- SOP -->
+<div id="sop" class="section">
+  <div class="section-title">📋 活動當天操作 SOP</div>
+  <div class="sop-grid">
+    <div class="sop-card">
+      <div class="sop-phase">活動開始前</div>
+      <div class="sop-item"><div class="sop-n">1</div><div>提前 5 分鐘開啟所有崗位頁面，等待伺服器喚醒（首次 30–50 秒）</div></div>
+      <div class="sop-item"><div class="sop-n">2</div><div>確認各頁面左上角顯示 <b>● 綠色圓點</b>（代表連線正常）</div></div>
+      <div class="sop-item"><div class="sop-n">3</div><div>管理後台按「重置全部」清除昨日資料</div></div>
+      <div class="sop-item"><div class="sop-n">4</div><div>確認設定頁籤中號碼前綴（W / T）、自動提醒時間正確</div></div>
+    </div>
+    <div class="sop-card">
+      <div class="sop-phase">活動進行中</div>
+      <div class="sop-item"><div class="sop-n">1</div><div>結帳後立即登記候位，手機號碼務必確認正確</div></div>
+      <div class="sop-item"><div class="sop-n">2</div><div>領瓶處依序叫號，確認領瓶後按確認按鈕進入製作中</div></div>
+      <div class="sop-item"><div class="sop-n">3</div><div>塔羅包廂各自叫號，製作完成後可立即叫下一位</div></div>
+      <div class="sop-item"><div class="sop-n">4</div><div>容量接近時，提前按「提醒」通知下一組客人回場</div></div>
+    </div>
+    <div class="sop-card">
+      <div class="sop-phase">活動結束後</div>
+      <div class="sop-item"><div class="sop-n">1</div><div>確認製作中欄位清空、候位名單為空</div></div>
+      <div class="sop-item"><div class="sop-n">2</div><div>管理後台查看今日統計（心願瓶 / 太陽 / 月亮 / 總計）</div></div>
+      <div class="sop-item"><div class="sop-n">3</div><div>視需求重置號碼，或保留至隔日活動再重置</div></div>
+    </div>
+  </div>
+  <div class="note success"><span class="note-icon">🎉</span>感謝所有工作人員的辛勞！如有系統問題請聯繫系統管理員。</div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+// FAQ toggle
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    const item = q.parentElement;
+    item.classList.toggle('open');
+  });
+});
+
+// Nav active on scroll
+const ids = ['overview','wb','checkout','leadbottle','tarot','liff','cabin','faq','sop'];
+const links = {};
+ids.forEach(id => { links[id] = document.querySelector(\`.nav-btn[href="#\${id}"]\`); });
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      Object.values(links).forEach(l => l && l.classList.remove('active'));
+      if (links[e.target.id]) links[e.target.id].classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -60% 0px' });
+
+ids.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) observer.observe(el);
+});
+</script>
+</body>
+</html>
+`); });
 
 app.get('/', (req, res) => res.send('排隊系統後端運作中'));
 
