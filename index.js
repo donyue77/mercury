@@ -571,6 +571,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2731,6 +2732,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
     <button class="btn btn-primary" onclick="callNext()">叫下一號 →</button>
     <button class="btn" onclick="repeatCall()" style="margin-bottom:0">重複叫號</button>
+    <button class="btn" id="confirm-seat-btn" onclick="confirmSeat()" style="display:none;background:#dcfce7;border:1.5px solid #86efac;color:#15803d;font-weight:700">確認入席 ✅</button>
   </div>
 
   <!-- 對方包廂 -->
@@ -3074,6 +3076,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
     <button class="btn btn-primary" onclick="callNext()">叫下一號 →</button>
     <button class="btn" onclick="repeatCall()" style="margin-bottom:0">重複叫號</button>
+    <button class="btn" id="confirm-seat-btn" onclick="confirmSeat()" style="display:none;background:#dcfce7;border:1.5px solid #86efac;color:#15803d;font-weight:700">確認入席 ✅</button>
   </div>
 
   <!-- 對方包廂 -->
