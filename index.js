@@ -312,6 +312,9 @@ app.post('/api/complete-making', async (req, res) => {
     const capAfter = data.state.A.inProgress.reduce((s, e) => s + (e.partySize || 1), 0);
     const slotsAfter = 6 - capAfter;
     const nextInQueue = data.state.A.queue.length > 0 ? data.state.A.queue[0] : null;
+    // 製作完成後清除 lastCalledEntry，避免誤顯示未到場按鈕
+    data.state.A.lastCalledEntry = null;
+    data.state.A.current = 0;
     await saveState(data);
     res.json({ success: true, nextInQueue, availableSlots: slotsAfter });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -474,6 +477,7 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
 
 
 
