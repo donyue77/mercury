@@ -546,6 +546,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -727,22 +728,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         </div>
         <button class="btn btn-B" onclick="takeNumber('B')" id="take-btn-B">取得號碼牌</button>
 
-        <!-- 心願瓶 -->
-        <div class="card" style="text-align:center;padding:20px 16px;margin-top:8px">
-          <div style="font-size:32px;margin-bottom:8px">🫙</div>
-          <div style="font-size:16px;font-weight:500;margin-bottom:4px" id="svcA-name">心願瓶DIY</div>
-          <div style="font-size:13px;color:var(--text2);line-height:1.7">請至服務台結帳後，由工作人員協助登記候位</div>
-        </div>
-        <div class="card" style="padding:12px 16px">
-          <div class="stat-row">
-            <span class="stat-label">目前等候</span>
-            <span class="stat-val" id="svcA-waiting">0 人</span>
-          </div>
-          <div class="stat-row" style="border:none">
-            <span class="stat-label">預估等待</span>
-            <span class="stat-val" id="svcA-est">—</span>
-          </div>
-        </div>
+
       </div>
     </div>
   </div>
