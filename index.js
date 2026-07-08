@@ -570,6 +570,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2655,8 +2656,7 @@ setInterval(syncFromServer, 2000);
 </body>
 </html>
 `); });
-app.get('/staff/tarot-sun', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`
-.btn-green{background:#dcfce7;border:1.5px solid #86efac !important;color:#15803d !important;font-weight:700}<!DOCTYPE html>
+app.get('/staff/tarot-sun', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -2708,6 +2708,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.btn-green{background:#dcfce7;border:1.5px solid #86efac;color:#15803d;font-weight:700}
 </style>
 </head>
 <body>
@@ -2998,8 +2999,7 @@ setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>`); });
-app.get('/staff/tarot-moon', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`
-.btn-green{background:#dcfce7;border:1.5px solid #86efac !important;color:#15803d !important;font-weight:700}<!DOCTYPE html>
+app.get('/staff/tarot-moon', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -3051,6 +3051,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 22px;border-radius:99px;font-size:13px;font-weight:500;transition:transform .25s;z-index:999;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.btn-green{background:#dcfce7;border:1.5px solid #86efac;color:#15803d;font-weight:700}
 </style>
 </head>
 <body>
