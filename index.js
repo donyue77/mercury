@@ -574,6 +574,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2785,8 +2786,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
 
     <!-- 10分鐘自動提醒倒數 -->
-    <div class="auto-bar" id="auto-bar">
-      ⏰ <span id="auto-text"></span>
+    <div class="auto-bar" id="auto-bar" style="display:flex;justify-content:space-between;align-items:center">
+      <span>⏰ <span id="auto-text"></span></span>
+      <span id="auto-countdown" style="font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.05em;color:#15803d;background:#fff;border-radius:6px;padding:2px 10px;border:1px solid #86efac"></span>
     </div>
 
     <!-- 未到場提示 -->
@@ -2816,6 +2818,8 @@ let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0, lastCal
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
 let autoTimer = null;
 let autoTargetNum = null;
+let countdownInterval = null;
+let countdownEnd = null;
 
 function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
 function showToast(msg) {
@@ -2848,12 +2852,35 @@ async function sendLineNotify(userId, message) {
 // 10 分鐘後自動提醒下一位
 function cancelAutoNotify() {
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; autoTargetNum = null; }
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  countdownEnd = null;
   const bar = document.getElementById('auto-bar');
   if (bar) bar.style.display = 'none';
 }
 
+function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  const cdEl = document.getElementById('auto-countdown');
+  function tick() {
+    if (!countdownEnd) return;
+    const remaining = Math.max(0, countdownEnd - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    if (cdEl) cdEl.textContent = \`\${String(mins).padStart(2,'0')}:\${String(secs).padStart(2,'0')}\`;
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      // bar hides after notify fires
+    }
+  }
+  tick();
+  countdownInterval = setInterval(tick, 1000);
+}
+
 function scheduleAutoNotify(nextEntry) {
   cancelAutoNotify();
+  countdownEnd = Date.now() + AUTO_NOTIFY_MS;
+  startCountdown();
   const bar = document.getElementById('auto-bar');
   const text = document.getElementById('auto-text');
   if (!nextEntry) { if (bar) bar.style.display = 'none'; return; }
@@ -2877,6 +2904,12 @@ function scheduleAutoNotify(nextEntry) {
     }
     autoTimer = null;
     autoTargetNum = null;
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    const cdEl2 = document.getElementById('auto-countdown');
+    if (cdEl2) cdEl2.textContent = '00:00';
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    const cdEl = document.getElementById('auto-countdown');
+    if (cdEl) cdEl.textContent = '00:00';
   }, AUTO_NOTIFY_MS);
 }
 
@@ -3130,8 +3163,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
 
     <!-- 10分鐘自動提醒倒數 -->
-    <div class="auto-bar" id="auto-bar">
-      ⏰ <span id="auto-text"></span>
+    <div class="auto-bar" id="auto-bar" style="display:flex;justify-content:space-between;align-items:center">
+      <span>⏰ <span id="auto-text"></span></span>
+      <span id="auto-countdown" style="font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.05em;color:#15803d;background:#fff;border-radius:6px;padding:2px 10px;border:1px solid #86efac"></span>
     </div>
 
     <!-- 未到場提示 -->
@@ -3161,6 +3195,8 @@ let state = { B: { current: 0, lastIssued: 0, queue: [], servedToday: 0, lastCal
 let cfg = { services: { B: { name: '塔羅牌占卜', prefix: 'T', minutes: 15 } } };
 let autoTimer = null;
 let autoTargetNum = null;
+let countdownInterval = null;
+let countdownEnd = null;
 
 function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
 function showToast(msg) {
@@ -3193,12 +3229,35 @@ async function sendLineNotify(userId, message) {
 // 10 分鐘後自動提醒下一位
 function cancelAutoNotify() {
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; autoTargetNum = null; }
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  countdownEnd = null;
   const bar = document.getElementById('auto-bar');
   if (bar) bar.style.display = 'none';
 }
 
+function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  const cdEl = document.getElementById('auto-countdown');
+  function tick() {
+    if (!countdownEnd) return;
+    const remaining = Math.max(0, countdownEnd - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    if (cdEl) cdEl.textContent = \`\${String(mins).padStart(2,'0')}:\${String(secs).padStart(2,'0')}\`;
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      // bar hides after notify fires
+    }
+  }
+  tick();
+  countdownInterval = setInterval(tick, 1000);
+}
+
 function scheduleAutoNotify(nextEntry) {
   cancelAutoNotify();
+  countdownEnd = Date.now() + AUTO_NOTIFY_MS;
+  startCountdown();
   const bar = document.getElementById('auto-bar');
   const text = document.getElementById('auto-text');
   if (!nextEntry) { if (bar) bar.style.display = 'none'; return; }
@@ -3222,6 +3281,12 @@ function scheduleAutoNotify(nextEntry) {
     }
     autoTimer = null;
     autoTargetNum = null;
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    const cdEl2 = document.getElementById('auto-countdown');
+    if (cdEl2) cdEl2.textContent = '00:00';
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    const cdEl = document.getElementById('auto-countdown');
+    if (cdEl) cdEl.textContent = '00:00';
   }, AUTO_NOTIFY_MS);
 }
 
