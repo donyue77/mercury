@@ -550,6 +550,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -721,8 +722,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
         <!-- 塔羅牌 -->
         <div class="card" style="text-align:center;padding:20px 16px;margin-bottom:12px">
           <div style="font-size:32px;margin-bottom:8px">🔮</div>
-          <div style="font-size:16px;font-weight:500;margin-bottom:4px" id="svcB-name">塔羅牌占卜</div>
-          <div style="font-size:13px;color:var(--text2)">填入姓名取號，輪到您時將傳送 LINE 通知</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:2px">神諭塔羅屋</div>
+          <div style="font-size:14px;color:var(--text2);margin-bottom:0" id="svcB-name">塔羅占卜服務</div>
+        </div>
+        <!-- 注意事項 -->
+        <div style="background:#fff8e1;border:1.5px solid #f59e0b;border-radius:10px;padding:14px 16px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start">
+          <div style="font-size:20px;flex-shrink:0">⚠️</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:4px">請注意｜僅限現場參與者取號</div>
+            <div style="font-size:12px;color:#b45309;line-height:1.7">此號碼牌系統<b>僅供在活動現場的朋友使用</b>。若您目前不在現場，請勿取號，以免佔用現場候位名額，影響其他朋友的等候體驗，感謝您的配合 🙏</div>
+          </div>
         </div>
         <div class="card">
           <div class="field" style="margin-bottom:0">
