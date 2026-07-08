@@ -582,6 +582,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -3081,6 +3082,11 @@ function render() {
     noshowBar.style.display = 'none';
   }
 
+  // 若倒數目標號碼已被另一包廂叫走（不在候位），自動取消倒數
+  if (autoTargetNum && !q.find(e => e.num === autoTargetNum)) {
+    cancelAutoNotify();
+  }
+
   // 恢復服務計時器與自動提醒倒數（重新整理後從後端 confirmedAt 恢復）
   const confirmedAt = state.B.cabins?.[CABIN_ID]?.confirmedAt || null;
   // 恢復自動提醒倒數
@@ -3567,6 +3573,11 @@ function render() {
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
     noshowBar.style.display = 'none';
+  }
+
+  // 若倒數目標號碼已被另一包廂叫走（不在候位），自動取消倒數
+  if (autoTargetNum && !q.find(e => e.num === autoTargetNum)) {
+    cancelAutoNotify();
   }
 
   // 恢復服務計時器與自動提醒倒數（重新整理後從後端 confirmedAt 恢復）
