@@ -575,6 +575,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2786,7 +2787,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
 
     <!-- 10分鐘自動提醒倒數 -->
-    <div class="auto-bar" id="auto-bar" style="display:flex;justify-content:space-between;align-items:center">
+    <div class="auto-bar" id="auto-bar" style="display:none;justify-content:space-between;align-items:center">
       <span>⏰ <span id="auto-text"></span></span>
       <span id="auto-countdown" style="font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.05em;color:#15803d;background:#fff;border-radius:6px;padding:2px 10px;border:1px solid #86efac"></span>
     </div>
@@ -2886,7 +2887,7 @@ function scheduleAutoNotify(nextEntry) {
   if (!nextEntry) { if (bar) bar.style.display = 'none'; return; }
   autoTargetNum = nextEntry.num;
   if (bar) {
-    bar.style.display = 'block';
+    bar.style.display = 'flex';
     text.textContent = \`將於 \${cfg.tarotNotifyMins || 10} 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
   }
   autoTimer = setTimeout(async () => {
@@ -3163,7 +3164,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     </div>
 
     <!-- 10分鐘自動提醒倒數 -->
-    <div class="auto-bar" id="auto-bar" style="display:flex;justify-content:space-between;align-items:center">
+    <div class="auto-bar" id="auto-bar" style="display:none;justify-content:space-between;align-items:center">
       <span>⏰ <span id="auto-text"></span></span>
       <span id="auto-countdown" style="font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.05em;color:#15803d;background:#fff;border-radius:6px;padding:2px 10px;border:1px solid #86efac"></span>
     </div>
@@ -3263,7 +3264,7 @@ function scheduleAutoNotify(nextEntry) {
   if (!nextEntry) { if (bar) bar.style.display = 'none'; return; }
   autoTargetNum = nextEntry.num;
   if (bar) {
-    bar.style.display = 'block';
+    bar.style.display = 'flex';
     text.textContent = \`將於 \${cfg.tarotNotifyMins || 10} 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
   }
   autoTimer = setTimeout(async () => {
