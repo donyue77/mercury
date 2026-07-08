@@ -125,7 +125,7 @@ async function getState() {
   if (data.cfg.tarotNotifyMins === undefined) data.cfg.tarotNotifyMins = 10;
   if (data.state.A.lastNotifiedNum === undefined) data.state.A.lastNotifiedNum = 0;
   if (!data.state.B.cabins) {
-    data.state.B.cabins = { sun: { current: 0, lastEntry: null, servedToday: 0 }, moon: { current: 0, lastEntry: null, servedToday: 0 } };
+    data.state.B.cabins = { sun: { current: 0, lastEntry: null, servedToday: 0, confirmedAt: null }, moon: { current: 0, lastEntry: null, servedToday: 0, confirmedAt: null } };
   }
   if (!data.state.B.cabins.sun) data.state.B.cabins.sun = { current: 0, lastEntry: null, servedToday: 0 };
   if (!data.state.B.cabins.moon) data.state.B.cabins.moon = { current: 0, lastEntry: null, servedToday: 0 };
@@ -320,6 +320,18 @@ app.post('/api/complete-making', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// 塔羅確認入席
+app.post('/api/confirm-seat', async (req, res) => {
+  try {
+    const { cabin } = req.body;
+    if (!cabin) return res.status(400).json({ error: '缺少 cabin 參數' });
+    const data = await getState();
+    data.state.B.cabins[cabin].confirmedAt = Date.now();
+    await saveState(data);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // 重置通知記錄（每次新叫號時呼叫）
 app.post('/api/reset-notify', async (req, res) => {
   try {
@@ -477,6 +489,8 @@ app.post('/api/line-notify', async (req, res) => {
 });
 
 // ── 頁面路由 ──────────────────────────────────────
+
+
 
 
 
@@ -2641,7 +2655,8 @@ setInterval(syncFromServer, 2000);
 </body>
 </html>
 `); });
-app.get('/staff/tarot-sun', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
+app.get('/staff/tarot-sun', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`
+.btn-green{background:#dcfce7;border:1.5px solid #86efac !important;color:#15803d !important;font-weight:700}<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -2847,6 +2862,23 @@ function scheduleAutoNotify(nextEntry) {
   }, AUTO_NOTIFY_MS);
 }
 
+async function confirmSeat() {
+  try {
+    const res = await fetch(BACKEND_URL + '/api/confirm-seat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cabin: CABIN_ID })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast('確認失敗'); return; }
+    // 確認入席後才開始自動提醒倒數
+    await syncFromServer();
+    const nextEntry = state.B.queue[0];
+    if (nextEntry) scheduleAutoNotify(nextEntry);
+    document.getElementById('confirm-seat-btn').style.display = 'none';
+    showToast('已確認入席，服務開始');
+  } catch(e) { showToast('網路錯誤'); }
+}
+
 async function callNext() {
   if (state.B.queue.length === 0) { showToast('目前無人候位'); return; }
   try {
@@ -2864,10 +2896,10 @@ async function callNext() {
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
     await syncFromServer();
-    // 設定 10 分鐘後提醒下一位
-    const nextInQueue = state.B.queue.length > 0 ? state.B.queue[0] : null;
-    scheduleAutoNotify(nextInQueue);
-    showToast('已叫號：' + fmt(entry.num));
+    // 叫號後顯示「確認入席」按鈕，等確認後才開始倒數提醒下一位
+    const confirmBtn = document.getElementById('confirm-seat-btn');
+    if (confirmBtn) confirmBtn.style.display = 'block';
+    showToast('已叫號：' + fmt(entry.num) + '，等待客人入席');
   } catch(e) { showToast('網路錯誤'); }
 }
 
@@ -2966,7 +2998,8 @@ setInterval(syncFromServer, 2000);
 </script>
 </body>
 </html>`); });
-app.get('/staff/tarot-moon', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
+app.get('/staff/tarot-moon', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`
+.btn-green{background:#dcfce7;border:1.5px solid #86efac !important;color:#15803d !important;font-weight:700}<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8"/>
@@ -3172,6 +3205,23 @@ function scheduleAutoNotify(nextEntry) {
   }, AUTO_NOTIFY_MS);
 }
 
+async function confirmSeat() {
+  try {
+    const res = await fetch(BACKEND_URL + '/api/confirm-seat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cabin: CABIN_ID })
+    });
+    const data = await res.json();
+    if (!data.success) { showToast('確認失敗'); return; }
+    // 確認入席後才開始自動提醒倒數
+    await syncFromServer();
+    const nextEntry = state.B.queue[0];
+    if (nextEntry) scheduleAutoNotify(nextEntry);
+    document.getElementById('confirm-seat-btn').style.display = 'none';
+    showToast('已確認入席，服務開始');
+  } catch(e) { showToast('網路錯誤'); }
+}
+
 async function callNext() {
   if (state.B.queue.length === 0) { showToast('目前無人候位'); return; }
   try {
@@ -3189,10 +3239,10 @@ async function callNext() {
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
     await syncFromServer();
-    // 設定 10 分鐘後提醒下一位
-    const nextInQueue = state.B.queue.length > 0 ? state.B.queue[0] : null;
-    scheduleAutoNotify(nextInQueue);
-    showToast('已叫號：' + fmt(entry.num));
+    // 叫號後顯示「確認入席」按鈕，等確認後才開始倒數提醒下一位
+    const confirmBtn = document.getElementById('confirm-seat-btn');
+    if (confirmBtn) confirmBtn.style.display = 'block';
+    showToast('已叫號：' + fmt(entry.num) + '，等待客人入席');
   } catch(e) { showToast('網路錯誤'); }
 }
 
