@@ -576,6 +576,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2922,12 +2924,16 @@ async function confirmSeat() {
     });
     const data = await res.json();
     if (!data.success) { showToast('確認失敗'); return; }
-    // 確認入席後才開始自動提醒倒數
+    // 確認入席後，只有候位名單有人才開始倒數提醒
     await syncFromServer();
     const nextEntry = state.B.queue[0];
-    if (nextEntry) scheduleAutoNotify(nextEntry);
+    if (nextEntry) {
+      scheduleAutoNotify(nextEntry);
+      showToast('已確認入席，服務開始，將於 ' + (cfg.tarotNotifyMins || 10) + ' 分鐘後提醒下一位');
+    } else {
+      showToast('已確認入席，服務開始（後方目前無候位）');
+    }
     document.getElementById('confirm-seat-btn').style.display = 'none';
-    showToast('已確認入席，服務開始');
   } catch(e) { showToast('網路錯誤'); }
 }
 
@@ -2947,6 +2953,8 @@ async function callNext() {
     const entry = data.called;
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
+    // 叫號時先取消舊的倒數計時
+    cancelAutoNotify();
     await syncFromServer();
     // 叫號後顯示「確認入席」按鈕，等確認後才開始倒數提醒下一位
     const confirmBtn = document.getElementById('confirm-seat-btn');
@@ -3299,12 +3307,16 @@ async function confirmSeat() {
     });
     const data = await res.json();
     if (!data.success) { showToast('確認失敗'); return; }
-    // 確認入席後才開始自動提醒倒數
+    // 確認入席後，只有候位名單有人才開始倒數提醒
     await syncFromServer();
     const nextEntry = state.B.queue[0];
-    if (nextEntry) scheduleAutoNotify(nextEntry);
+    if (nextEntry) {
+      scheduleAutoNotify(nextEntry);
+      showToast('已確認入席，服務開始，將於 ' + (cfg.tarotNotifyMins || 10) + ' 分鐘後提醒下一位');
+    } else {
+      showToast('已確認入席，服務開始（後方目前無候位）');
+    }
     document.getElementById('confirm-seat-btn').style.display = 'none';
-    showToast('已確認入席，服務開始');
   } catch(e) { showToast('網路錯誤'); }
 }
 
@@ -3324,6 +3336,8 @@ async function callNext() {
     const entry = data.called;
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
+    // 叫號時先取消舊的倒數計時
+    cancelAutoNotify();
     await syncFromServer();
     // 叫號後顯示「確認入席」按鈕，等確認後才開始倒數提醒下一位
     const confirmBtn = document.getElementById('confirm-seat-btn');
