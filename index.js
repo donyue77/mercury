@@ -545,6 +545,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -755,7 +756,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
       🫙 心願瓶 DIY 候位狀況
     </div>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:8px">
-      <div style="font-size:12px;color:#15803d;margin-bottom:10px">📋 請至結帳櫃檯完成購物後，由工作人員協助登記候位</div>
+      <div style="font-size:12px;color:#15803d;margin-bottom:10px">📋 欲登記心願瓶DIY，請至快閃店櫃檯結帳後，會由工作人員協助登記候位</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
         <div style="text-align:center">
           <div style="font-size:11px;color:var(--text3);margin-bottom:2px">目前叫號</div>
@@ -953,17 +954,12 @@ async function leaveQueue() {
 function render() {
   // 更新服務名稱
   document.getElementById('topbar-title').textContent = cfg.systemName;
-  document.getElementById('svcA-name').textContent = cfg.services.A.name;
-  document.getElementById('svcB-name').textContent = cfg.services.B.name;
-  document.getElementById('status-tab-A').textContent = cfg.services.A.name;
-  document.getElementById('status-tab-B').textContent = cfg.services.B.name;
-  document.getElementById('take-btn-B').textContent = \`取得 \${cfg.services.B.name} 號碼牌\`;
-
-  // 心願瓶等候資訊
-  const qA = state.A.queue;
-  document.getElementById('svcA-waiting').textContent = qA.length + ' 人';
-  const estA = qA.length > 0 ? Math.max(0, Math.ceil(qA.length / 5) - 1) * cfg.services.A.minutes : 0;
-  document.getElementById('svcA-est').textContent = qA.length > 0 ? (estA > 0 ? estA + ' 分鐘' : '即將輪到') : '無需等候';
+  const svcANameEl = document.getElementById('svcA-name');
+  if (svcANameEl) svcANameEl.textContent = cfg.services.A.name;
+  const svcBNameEl = document.getElementById('svcB-name');
+  if (svcBNameEl) svcBNameEl.textContent = cfg.services.B.name;
+  const takeBtnEl = document.getElementById('take-btn-B');
+  if (takeBtnEl) takeBtnEl.textContent = \`取得 \${cfg.services.B.name} 號碼牌\`;
 
   // 票券顯示
   if (myTicket) {
