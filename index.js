@@ -543,6 +543,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -659,8 +661,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <div class="topbar-title" id="topbar-title">排隊取號</div>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="goTab('take')" id="tab-take">取號</button>
-    <button class="tab" onclick="goTab('status')" id="tab-status">等候狀況</button>
+    <button class="tab active" onclick="goTab('take')" id="tab-take">🔮 塔羅取號</button>
+    <button class="tab" onclick="goTab('status')" id="tab-status">📊 候位狀況</button>
   </div>
 
   <!-- 取號 -->
@@ -746,51 +748,72 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
   <!-- 等候狀況 -->
   <div class="panel" id="panel-status">
-    <div class="svc-tabs">
-      <button class="svc-tab active-A" id="status-tab-A" onclick="setStatusSvc('A')" id="status-tab-A">心願瓶DIY</button>
-      <button class="svc-tab" id="status-tab-B" onclick="setStatusSvc('B')">塔羅牌占卜</button>
+
+    <!-- 心願瓶 DIY 狀況 -->
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:4px 0 10px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:3px;height:14px;background:var(--sA);border-radius:2px"></span>
+      🫙 心願瓶 DIY 候位狀況
     </div>
-    <!-- 塔羅牌兩包廂狀態 -->
-    <div id="tarot-cabins" style="display:none;margin-bottom:12px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="card" style="padding:14px;text-align:center">
-          <div style="font-size:16px;margin-bottom:4px">☀️</div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">太陽包廂</div>
-          <div style="font-size:24px;font-weight:600;color:var(--sB)" id="sun-cur">—</div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:12px;color:#15803d;margin-bottom:10px">📋 請至結帳櫃檯完成購物後，由工作人員協助登記候位</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:2px">目前叫號</div>
+          <div style="font-size:22px;font-weight:700;color:var(--sA)" id="wb-cur-num">—</div>
         </div>
-        <div class="card" style="padding:14px;text-align:center">
-          <div style="font-size:16px;margin-bottom:4px">🌙</div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">月亮包廂</div>
-          <div style="font-size:24px;font-weight:600;color:var(--sB)" id="moon-cur">—</div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:2px">等候組數</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text)" id="svcA-waiting">0</div>
         </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:2px">預估等待</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text)" id="svcA-est">—</div>
+        </div>
+      </div>
+      <div id="wb-inprogress-wrap" style="display:none;border-top:1px solid #bbf7d0;padding-top:8px;margin-top:2px">
+        <div style="font-size:11px;color:#15803d;margin-bottom:6px">🫙 製作中</div>
+        <div id="wb-inprogress-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div style="text-align:center;padding:20px 0 14px">
-        <div class="big-num" id="status-cur">—</div>
-        <div class="big-sub" id="status-label">等待服務</div>
+    <div style="height:20px"></div>
+
+    <!-- 塔羅牌占卜狀況 -->
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:4px 0 10px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:3px;height:14px;background:var(--sB);border-radius:2px"></span>
+      🔮 塔羅牌占卜候位狀況
+    </div>
+    <!-- 雙包廂 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:18px;margin-bottom:4px">☀️</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">太陽包廂</div>
+        <div style="font-size:26px;font-weight:700;color:var(--sB)" id="sun-cur">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">目前叫號</div>
       </div>
-      <div class="wait-bar-wrap">
-        <div class="wait-bar-label"><span>等候人數</span><span id="status-bar-label">0 人</span></div>
-        <div class="wait-bar-track"><div class="wait-bar-fill A" id="status-bar" style="width:0%"></div></div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:18px;margin-bottom:4px">🌙</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">月亮包廂</div>
+        <div style="font-size:26px;font-weight:700;color:var(--sB)" id="moon-cur">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">目前叫號</div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div class="card" style="padding:14px;text-align:center">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">等候人數</div>
-        <div style="font-size:28px;font-weight:500" id="status-waiting">0</div>
+        <div style="font-size:28px;font-weight:700" id="status-waiting">0</div>
       </div>
       <div class="card" style="padding:14px;text-align:center">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">預估等待</div>
-        <div style="font-size:28px;font-weight:500" id="status-est">—</div>
+        <div style="font-size:28px;font-weight:700" id="status-est">—</div>
         <div style="font-size:11px;color:var(--text3)">分鐘</div>
       </div>
     </div>
     <div class="card">
-      <div class="card-title" style="margin-bottom:10px">等候序列</div>
+      <div class="card-title" style="margin-bottom:10px">塔羅牌等候序列</div>
       <div class="chips" id="status-chips"><span class="empty">目前無人候位</span></div>
     </div>
+
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -830,10 +853,7 @@ function goTab(name) {
 }
 
 function setStatusSvc(s) {
-  currentStatusSvc = s;
-  ['A','B'].forEach(x => {
-    document.getElementById('status-tab-'+x).className = 'svc-tab' + (x===s ? ' active-'+x : '');
-  });
+  // 等候狀況頁現在同時顯示兩個服務，無需切換
   renderStatus();
 }
 
@@ -1005,39 +1025,60 @@ function render() {
 }
 
 function renderStatus() {
-  const svc = currentStatusSvc;
-  const q = state[svc].queue;
-  const cur = state[svc].current;
-  const mins = cfg.services[svc].minutes;
-  const statusNumStr = cur > 0 ? fmt(svc, cur) : '—';
-  const el = document.getElementById('status-cur');
-  el.textContent = statusNumStr; el.className = 'big-num color-' + svc;
-  document.getElementById('status-label').textContent = svc === 'B'
-    ? (cur > 0 ? '最新叫號' : '等待服務')
-    : (cur > 0 ? \`請 \${statusNumStr} 號前往\` : '等待服務');
-  document.getElementById('status-waiting').textContent = q.length;
-  // 等待時間計算
-  let estMins = 0;
-  if (svc === 'A') {
-    const totalCapA = q.reduce((s, e) => s + (e.partySize || 1), 0);
-    const inProgCapA = (state.A.inProgress || []).reduce((s, e) => s + (e.partySize || 1), 0);
-    const overCapA = Math.max(0, inProgCapA + totalCapA - 6);
-    estMins = q.length > 0 ? Math.ceil(overCapA / 6) * mins : 0;
-  } else {
-    estMins = q.length > 0 ? Math.max(0, Math.ceil(q.length / 2) - 1) * mins : 0;
+  // ── 心願瓶 DIY 狀況 ──
+  const qA = state.A.queue;
+  const curA = state.A.lastCalledEntry?.num || state.A.current;
+  const minsA = cfg.services.A.minutes;
+  const totalCapA = qA.reduce((s, e) => s + (e.partySize || 1), 0);
+  const inProgCapA = (state.A.inProgress || []).reduce((s, e) => s + (e.partySize || 1), 0);
+  const overCapA = Math.max(0, inProgCapA + totalCapA - 6);
+  const estMinsA = qA.length > 0 ? Math.ceil(overCapA / 6) * minsA : 0;
+  const wbCurEl = document.getElementById('wb-cur-num');
+  if (wbCurEl) wbCurEl.textContent = curA > 0 ? fmt('A', curA) : '—';
+  const wbWaitEl = document.getElementById('svcA-waiting');
+  if (wbWaitEl) wbWaitEl.textContent = qA.length;
+  const wbEstEl = document.getElementById('svcA-est');
+  if (wbEstEl) wbEstEl.textContent = qA.length > 0 ? (estMinsA > 0 ? estMinsA + ' 分' : '即將輪到') : '—';
+  // 製作中號碼清單
+  const inProg = state.A.inProgress || [];
+  const wbWrap = document.getElementById('wb-inprogress-wrap');
+  const wbChips = document.getElementById('wb-inprogress-chips');
+  if (wbWrap && wbChips) {
+    if (inProg.length === 0) {
+      wbWrap.style.display = 'none';
+    } else {
+      wbWrap.style.display = 'block';
+      wbChips.innerHTML = inProg.map(e =>
+        \`<span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:99px;padding:3px 10px;font-size:13px;font-weight:600">\${fmt('A', e.num)}</span>\`
+      ).join('');
+    }
   }
-  document.getElementById('status-est').textContent = q.length > 0 ? (estMins > 0 ? estMins : '即將輪到') : '—';
-  const pct = Math.min(100, Math.round(q.length / 20 * 100));
-  document.getElementById('status-bar').style.width = pct + '%';
-  document.getElementById('status-bar').className = 'wait-bar-fill ' + svc;
-  document.getElementById('status-bar-label').textContent = q.length + ' 人';
+
+  // ── 塔羅牌占卜狀況 ──
+  const qB = state.B.queue;
+  const minsB = cfg.services.B.minutes;
+  const estMinsB = qB.length > 0 ? Math.max(0, Math.ceil(qB.length / 2) - 1) * minsB : 0;
+  const waitEl = document.getElementById('status-waiting');
+  if (waitEl) waitEl.textContent = qB.length;
+  const estEl = document.getElementById('status-est');
+  if (estEl) estEl.textContent = qB.length > 0 ? (estMinsB > 0 ? estMinsB : '即將輪到') : '—';
+  // 塔羅牌等候序列
   const chips = document.getElementById('status-chips');
-  if (q.length === 0) { chips.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
-  chips.innerHTML = q.map((entry, i) => {
-    const isMine = myTicket && myTicket.svc === svc && myTicket.num === entry.num;
-    let cls = 'chip' + (i===0 ? ' cur-'+svc : '') + (isMine ? ' mine' : '');
-    return \`<span class="\${cls}">\${fmt(svc, entry.num)}\${isMine ? ' (我)' : ''}</span>\`;
-  }).join('');
+  if (chips) {
+    if (qB.length === 0) { chips.innerHTML = '<span class="empty">目前無人候位</span>'; }
+    else {
+      chips.innerHTML = qB.map((entry, i) => {
+        const isMine = myTicket && myTicket.svc === 'B' && myTicket.num === entry.num;
+        let cls = 'chip' + (i === 0 ? ' cur-B' : '') + (isMine ? ' mine' : '');
+        return \`<span class="\${cls}">\${fmt('B', entry.num)}\${isMine ? ' (我)' : ''}</span>\`;
+      }).join('');
+    }
+  }
+  // 雙包廂顯示
+  const sunEl = document.getElementById('sun-cur');
+  const moonEl = document.getElementById('moon-cur');
+  if (sunEl) sunEl.textContent = state.B.cabins?.sun?.current > 0 ? fmt('B', state.B.cabins.sun.current) : '—';
+  if (moonEl) moonEl.textContent = state.B.cabins?.moon?.current > 0 ? fmt('B', state.B.cabins.moon.current) : '—';
 }
 
 // 初始化
