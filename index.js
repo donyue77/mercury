@@ -572,6 +572,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -892,6 +894,19 @@ async function syncFromServer() {
       if (loadingTimer) clearTimeout(loadingTimer);
       const overlay = document.getElementById('loading-overlay');
       if (overlay) overlay.style.display = 'none';
+    }
+    // 塔羅牌：若客人已確認入席，自動清除票券回到取號狀態
+    if (myTicket && myTicket.svc === 'B') {
+      const myNum = myTicket.num;
+      const stillInQueue = state.B.queue.find(e => e.num === myNum);
+      const cabins = state.B.cabins || {};
+      const isBeingServed = Object.values(cabins).some(c => c.current === myNum && c.confirmedAt);
+      if (!stillInQueue && isBeingServed) {
+        // 已確認入席，清除票券並顯示服務中提示
+        myTicket = null;
+        localStorage.removeItem('qs_ticket');
+        showToast('✅ 服務進行中，感謝您！取號畫面已重置');
+      }
     }
     render();
   } catch(e) {
@@ -2966,8 +2981,9 @@ function render() {
   const renderMyCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
   const myLastNum = renderMyCabinEntry?.num || 0;
   const myCabinCurrent = state.B.cabins?.[CABIN_ID]?.current || 0;
-  // 只有本包廂叫的號、且不在候位序列中、且尚未被處理才顯示
-  if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum)) {
+  // 只有本包廂叫的號、且不在候位序列中、且尚未確認入席才顯示未到場
+  const isConfirmedSeat = state.B.cabins?.[CABIN_ID]?.confirmedAt != null;
+  if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum) && !isConfirmedSeat) {
     noshowBar.style.display = 'flex';
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
@@ -3310,8 +3326,9 @@ function render() {
   const renderMyCabinEntry = state.B.cabins?.[CABIN_ID]?.lastEntry;
   const myLastNum = renderMyCabinEntry?.num || 0;
   const myCabinCurrent = state.B.cabins?.[CABIN_ID]?.current || 0;
-  // 只有本包廂叫的號、且不在候位序列中、且尚未被處理才顯示
-  if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum)) {
+  // 只有本包廂叫的號、且不在候位序列中、且尚未確認入席才顯示未到場
+  const isConfirmedSeat = state.B.cabins?.[CABIN_ID]?.confirmedAt != null;
+  if (myLastNum > 0 && myCabinCurrent === myLastNum && !q.find(e => e.num === myLastNum) && !isConfirmedSeat) {
     noshowBar.style.display = 'flex';
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
