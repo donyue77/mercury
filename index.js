@@ -551,6 +551,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -751,15 +752,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
 
     <!-- 心願瓶 DIY 狀況 -->
     <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:4px 0 10px;display:flex;align-items:center;gap:6px">
-      <span style="display:inline-block;width:3px;height:14px;background:var(--sA);border-radius:2px"></span>
+      <span style="display:inline-block;width:3px;height:14px;background:#3b82f6;border-radius:2px"></span>
       🫙 心願瓶 DIY 候位狀況
     </div>
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:8px">
-      <div style="font-size:12px;color:#15803d;margin-bottom:10px">📋 欲登記心願瓶DIY，請至快閃店櫃檯結帳後，會由工作人員協助登記候位</div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:12px;color:#1e40af;margin-bottom:10px">📋 欲登記心願瓶DIY，請至快閃店櫃檯結帳後，會由工作人員協助登記候位</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
         <div style="text-align:center">
           <div style="font-size:11px;color:var(--text3);margin-bottom:2px">目前叫號</div>
-          <div style="font-size:22px;font-weight:700;color:var(--sA)" id="wb-cur-num">—</div>
+          <div style="font-size:22px;font-weight:700;color:#dc2626" id="wb-cur-num">—</div>
         </div>
         <div style="text-align:center">
           <div style="font-size:11px;color:var(--text3);margin-bottom:2px">等候組數</div>
@@ -770,8 +771,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
           <div style="font-size:22px;font-weight:700;color:var(--text)" id="svcA-est">—</div>
         </div>
       </div>
-      <div id="wb-inprogress-wrap" style="display:none;border-top:1px solid #bbf7d0;padding-top:8px;margin-top:2px">
-        <div style="font-size:11px;color:#15803d;margin-bottom:6px">🫙 製作中</div>
+      <div id="wb-inprogress-wrap" style="display:none;border-top:1px solid #bfdbfe;padding-top:8px;margin-top:2px">
+        <div style="font-size:11px;color:#1e40af;margin-bottom:6px">🫙 製作中</div>
         <div id="wb-inprogress-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
     </div>
@@ -1045,7 +1046,7 @@ function renderStatus() {
     } else {
       wbWrap.style.display = 'block';
       wbChips.innerHTML = inProg.map(e =>
-        \`<span style="display:inline-block;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:99px;padding:3px 10px;font-size:13px;font-weight:600">\${fmt('A', e.num)}</span>\`
+        \`<span style="display:inline-block;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;border-radius:99px;padding:3px 10px;font-size:13px;font-weight:600">\${fmt('A', e.num)}</span>\`
       ).join('');
     }
   }
