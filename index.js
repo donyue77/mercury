@@ -580,6 +580,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -3079,6 +3081,66 @@ function render() {
     noshowBar.style.display = 'none';
   }
 
+  // 恢復服務計時器與自動提醒倒數（重新整理後從後端 confirmedAt 恢復）
+  const confirmedAt = state.B.cabins?.[CABIN_ID]?.confirmedAt || null;
+  // 恢復自動提醒倒數
+  if (confirmedAt && !autoTimer) {
+    const nextEntry = q[0];
+    if (nextEntry) {
+      const elapsed = Date.now() - confirmedAt;
+      const remaining = AUTO_NOTIFY_MS - elapsed;
+      if (remaining > 0) {
+        // 還在倒數中，恢復剩餘時間
+        autoTargetNum = nextEntry.num;
+        countdownEnd = Date.now() + remaining;
+        startCountdown();
+        const bar = document.getElementById('auto-bar');
+        const text = document.getElementById('auto-text');
+        if (bar) bar.style.display = 'flex';
+        if (text) text.textContent = \`將於 \${Math.ceil(remaining/60000)} 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
+        autoTimer = setTimeout(async () => {
+          await syncFromServer();
+          const still = state.B.queue.find(e => e.num === autoTargetNum);
+          if (still) {
+            sendLineNotify(still.userId,
+              \`🔮 塔羅牌占卜｜⏰ \${still.name} 您好！您的 \${fmt(still.num)} 號快輪到了，請先回到現場附近準備，我們將在您的號碼叫到時再次通知您 🙏\`);
+            if (bar) { text.textContent = \`✅ 已自動提醒 \${still.name}（\${fmt(still.num)}）\`; setTimeout(() => { bar.style.display = 'none'; }, 8000); }
+          } else { if (bar) bar.style.display = 'none'; }
+          autoTimer = null; autoTargetNum = null;
+          if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+          const cdEl2 = document.getElementById('auto-countdown');
+          if (cdEl2) cdEl2.textContent = '00:00';
+        }, remaining);
+      }
+      // 若 remaining <= 0 代表已超過時間，不再發送
+    }
+  }
+  if (confirmedAt && !serviceTimerInterval) {
+    serviceTimerStart = confirmedAt;
+    const timerCard = document.getElementById('service-timer-card');
+    const timerDisplay = document.getElementById('service-timer-display');
+    if (timerCard) timerCard.style.display = 'block';
+    serviceTimerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - serviceTimerStart) / 1000);
+      const mins2 = Math.floor(elapsed / 60);
+      const secs2 = elapsed % 60;
+      if (timerDisplay) timerDisplay.textContent = \`\${String(mins2).padStart(2,'0')}:\${String(secs2).padStart(2,'0')}\`;
+      if (elapsed >= 15 * 60) {
+        if (timerDisplay) timerDisplay.style.color = '#dc2626';
+        if (timerCard) { timerCard.style.borderColor = '#dc2626'; timerCard.style.background = '#fff5f5'; }
+        const lbl = timerCard?.querySelector('div');
+        if (lbl) lbl.style.color = '#dc2626';
+      } else {
+        if (timerDisplay) timerDisplay.style.color = '#6d28d9';
+        if (timerCard) { timerCard.style.borderColor = '#7c3aed'; timerCard.style.background = '#fff'; }
+        const lbl = timerCard?.querySelector('div');
+        if (lbl) lbl.style.color = '#7c3aed';
+      }
+    }, 1000);
+  } else if (!confirmedAt) {
+    stopServiceTimer();
+  }
+
   // 候位名單（純顯示，最多10位）
   const list = document.getElementById('queue-list');
   if (q.length === 0) { list.innerHTML = '<span class="empty">目前無人候位</span>'; return; }
@@ -3505,6 +3567,66 @@ function render() {
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
     noshowBar.style.display = 'none';
+  }
+
+  // 恢復服務計時器與自動提醒倒數（重新整理後從後端 confirmedAt 恢復）
+  const confirmedAt = state.B.cabins?.[CABIN_ID]?.confirmedAt || null;
+  // 恢復自動提醒倒數
+  if (confirmedAt && !autoTimer) {
+    const nextEntry = q[0];
+    if (nextEntry) {
+      const elapsed = Date.now() - confirmedAt;
+      const remaining = AUTO_NOTIFY_MS - elapsed;
+      if (remaining > 0) {
+        // 還在倒數中，恢復剩餘時間
+        autoTargetNum = nextEntry.num;
+        countdownEnd = Date.now() + remaining;
+        startCountdown();
+        const bar = document.getElementById('auto-bar');
+        const text = document.getElementById('auto-text');
+        if (bar) bar.style.display = 'flex';
+        if (text) text.textContent = \`將於 \${Math.ceil(remaining/60000)} 分鐘後自動提醒 \${nextEntry.name}（\${fmt(nextEntry.num)}）準備回場\`;
+        autoTimer = setTimeout(async () => {
+          await syncFromServer();
+          const still = state.B.queue.find(e => e.num === autoTargetNum);
+          if (still) {
+            sendLineNotify(still.userId,
+              \`🔮 塔羅牌占卜｜⏰ \${still.name} 您好！您的 \${fmt(still.num)} 號快輪到了，請先回到現場附近準備，我們將在您的號碼叫到時再次通知您 🙏\`);
+            if (bar) { text.textContent = \`✅ 已自動提醒 \${still.name}（\${fmt(still.num)}）\`; setTimeout(() => { bar.style.display = 'none'; }, 8000); }
+          } else { if (bar) bar.style.display = 'none'; }
+          autoTimer = null; autoTargetNum = null;
+          if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+          const cdEl2 = document.getElementById('auto-countdown');
+          if (cdEl2) cdEl2.textContent = '00:00';
+        }, remaining);
+      }
+      // 若 remaining <= 0 代表已超過時間，不再發送
+    }
+  }
+  if (confirmedAt && !serviceTimerInterval) {
+    serviceTimerStart = confirmedAt;
+    const timerCard = document.getElementById('service-timer-card');
+    const timerDisplay = document.getElementById('service-timer-display');
+    if (timerCard) timerCard.style.display = 'block';
+    serviceTimerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - serviceTimerStart) / 1000);
+      const mins2 = Math.floor(elapsed / 60);
+      const secs2 = elapsed % 60;
+      if (timerDisplay) timerDisplay.textContent = \`\${String(mins2).padStart(2,'0')}:\${String(secs2).padStart(2,'0')}\`;
+      if (elapsed >= 15 * 60) {
+        if (timerDisplay) timerDisplay.style.color = '#dc2626';
+        if (timerCard) { timerCard.style.borderColor = '#dc2626'; timerCard.style.background = '#fff5f5'; }
+        const lbl = timerCard?.querySelector('div');
+        if (lbl) lbl.style.color = '#dc2626';
+      } else {
+        if (timerDisplay) timerDisplay.style.color = '#6d28d9';
+        if (timerCard) { timerCard.style.borderColor = '#7c3aed'; timerCard.style.background = '#fff'; }
+        const lbl = timerCard?.querySelector('div');
+        if (lbl) lbl.style.color = '#7c3aed';
+      }
+    }, 1000);
+  } else if (!confirmedAt) {
+    stopServiceTimer();
   }
 
   // 候位名單（純顯示，最多10位）
