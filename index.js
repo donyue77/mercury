@@ -578,6 +578,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2754,6 +2756,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <button class="btn" id="confirm-seat-btn" onclick="confirmSeat()" style="display:none;background:#dcfce7;border:1.5px solid #86efac;color:#15803d;font-weight:700">確認入席 ✅</button>
   </div>
 
+  <!-- 服務計時器 -->
+  <div id="service-timer-card" style="display:none;background:#fff;border:2px solid #7c3aed;border-radius:12px;padding:16px 20px;margin-bottom:12px;text-align:center">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7c3aed;margin-bottom:8px">⏱ 本次服務時長</div>
+    <div id="service-timer-display" style="font-size:48px;font-weight:900;color:#6d28d9;font-variant-numeric:tabular-nums;letter-spacing:.05em;line-height:1">00:00</div>
+  </div>
+
   <!-- 對方包廂 -->
   <div class="other-cabin">
     <div style="font-size:22px">🌙</div>
@@ -2823,6 +2831,8 @@ let autoTimer = null;
 let autoTargetNum = null;
 let countdownInterval = null;
 let countdownEnd = null;
+let serviceTimerInterval = null;
+let serviceTimerStart = null;
 
 function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
 function showToast(msg) {
@@ -2880,6 +2890,41 @@ function startCountdown() {
   countdownInterval = setInterval(tick, 1000);
 }
 
+function startServiceTimer() {
+  stopServiceTimer();
+  serviceTimerStart = Date.now();
+  const display = document.getElementById('service-timer-display');
+  const card = document.getElementById('service-timer-card');
+  if (card) card.style.display = 'block';
+  serviceTimerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - serviceTimerStart) / 1000);
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    if (display) display.textContent = \`\${String(mins).padStart(2,'0')}:\${String(secs).padStart(2,'0')}\`;
+    // 超過 15 分鐘變紅色警示
+    if (elapsed >= 15 * 60) {
+      if (display) { display.style.color = '#dc2626'; }
+      if (card) { card.style.borderColor = '#dc2626'; card.style.background = '#fff5f5'; }
+      const label = card?.querySelector('div');
+      if (label) label.style.color = '#dc2626';
+    } else {
+      if (display) { display.style.color = '#6d28d9'; }
+      if (card) { card.style.borderColor = '#7c3aed'; card.style.background = '#fff'; }
+      const label = card?.querySelector('div');
+      if (label) label.style.color = '#7c3aed';
+    }
+  }, 1000);
+}
+
+function stopServiceTimer() {
+  if (serviceTimerInterval) { clearInterval(serviceTimerInterval); serviceTimerInterval = null; }
+  serviceTimerStart = null;
+  const card = document.getElementById('service-timer-card');
+  const display = document.getElementById('service-timer-display');
+  if (card) card.style.display = 'none';
+  if (display) display.textContent = '00:00';
+}
+
 function scheduleAutoNotify(nextEntry) {
   cancelAutoNotify();
   countdownEnd = Date.now() + AUTO_NOTIFY_MS;
@@ -2934,6 +2979,7 @@ async function confirmSeat() {
       showToast('已確認入席，服務開始（後方目前無候位）');
     }
     document.getElementById('confirm-seat-btn').style.display = 'none';
+    startServiceTimer();
   } catch(e) { showToast('網路錯誤'); }
 }
 
@@ -2953,8 +2999,9 @@ async function callNext() {
     const entry = data.called;
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
-    // 叫號時先取消舊的倒數計時
+    // 叫號時先取消舊的倒數計時與服務計時器
     cancelAutoNotify();
+    stopServiceTimer();
     await syncFromServer();
     // 叫號後顯示「確認入席」按鈕，等確認後才開始倒數提醒下一位
     const confirmBtn = document.getElementById('confirm-seat-btn');
@@ -3137,6 +3184,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans TC',sans-serif;back
     <button class="btn" id="confirm-seat-btn" onclick="confirmSeat()" style="display:none;background:#dcfce7;border:1.5px solid #86efac;color:#15803d;font-weight:700">確認入席 ✅</button>
   </div>
 
+  <!-- 服務計時器 -->
+  <div id="service-timer-card" style="display:none;background:#fff;border:2px solid #7c3aed;border-radius:12px;padding:16px 20px;margin-bottom:12px;text-align:center">
+    <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7c3aed;margin-bottom:8px">⏱ 本次服務時長</div>
+    <div id="service-timer-display" style="font-size:48px;font-weight:900;color:#6d28d9;font-variant-numeric:tabular-nums;letter-spacing:.05em;line-height:1">00:00</div>
+  </div>
+
   <!-- 對方包廂 -->
   <div class="other-cabin">
     <div style="font-size:22px">☀️</div>
@@ -3206,6 +3259,8 @@ let autoTimer = null;
 let autoTargetNum = null;
 let countdownInterval = null;
 let countdownEnd = null;
+let serviceTimerInterval = null;
+let serviceTimerStart = null;
 
 function fmt(n) { return cfg.services.B.prefix + String(n).padStart(3,'0'); }
 function showToast(msg) {
@@ -3263,6 +3318,41 @@ function startCountdown() {
   countdownInterval = setInterval(tick, 1000);
 }
 
+function startServiceTimer() {
+  stopServiceTimer();
+  serviceTimerStart = Date.now();
+  const display = document.getElementById('service-timer-display');
+  const card = document.getElementById('service-timer-card');
+  if (card) card.style.display = 'block';
+  serviceTimerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - serviceTimerStart) / 1000);
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    if (display) display.textContent = \`\${String(mins).padStart(2,'0')}:\${String(secs).padStart(2,'0')}\`;
+    // 超過 15 分鐘變紅色警示
+    if (elapsed >= 15 * 60) {
+      if (display) { display.style.color = '#dc2626'; }
+      if (card) { card.style.borderColor = '#dc2626'; card.style.background = '#fff5f5'; }
+      const label = card?.querySelector('div');
+      if (label) label.style.color = '#dc2626';
+    } else {
+      if (display) { display.style.color = '#6d28d9'; }
+      if (card) { card.style.borderColor = '#7c3aed'; card.style.background = '#fff'; }
+      const label = card?.querySelector('div');
+      if (label) label.style.color = '#7c3aed';
+    }
+  }, 1000);
+}
+
+function stopServiceTimer() {
+  if (serviceTimerInterval) { clearInterval(serviceTimerInterval); serviceTimerInterval = null; }
+  serviceTimerStart = null;
+  const card = document.getElementById('service-timer-card');
+  const display = document.getElementById('service-timer-display');
+  if (card) card.style.display = 'none';
+  if (display) display.textContent = '00:00';
+}
+
 function scheduleAutoNotify(nextEntry) {
   cancelAutoNotify();
   countdownEnd = Date.now() + AUTO_NOTIFY_MS;
@@ -3317,6 +3407,7 @@ async function confirmSeat() {
       showToast('已確認入席，服務開始（後方目前無候位）');
     }
     document.getElementById('confirm-seat-btn').style.display = 'none';
+    startServiceTimer();
   } catch(e) { showToast('網路錯誤'); }
 }
 
@@ -3336,8 +3427,9 @@ async function callNext() {
     const entry = data.called;
     sendLineNotify(entry.userId,
       \`🔮 塔羅牌占卜｜📢 \${entry.name} 您好！現在叫到 \${fmt(entry.num)} 號，請前往 \${CABIN_NAME} 入座，謝謝！\`);
-    // 叫號時先取消舊的倒數計時
+    // 叫號時先取消舊的倒數計時與服務計時器
     cancelAutoNotify();
+    stopServiceTimer();
     await syncFromServer();
     // 叫號後顯示「確認入席」按鈕，等確認後才開始倒數提醒下一位
     const confirmBtn = document.getElementById('confirm-seat-btn');
