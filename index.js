@@ -549,6 +549,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -941,8 +942,9 @@ async function leaveQueue() {
 }
 
 function render() {
-  // 更新服務名稱
-  document.getElementById('topbar-title').textContent = cfg.systemName;
+  // 更新服務名稱（null 保護避免頁面崩潰）
+  const topbarEl = document.getElementById('topbar-title');
+  if (topbarEl) topbarEl.textContent = cfg.systemName;
   const svcANameEl = document.getElementById('svcA-name');
   if (svcANameEl) svcANameEl.textContent = cfg.services.A.name;
   const svcBNameEl = document.getElementById('svcB-name');
