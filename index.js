@@ -586,6 +586,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -2863,7 +2864,7 @@ async function sendLineNotify(userId, message) {
     await fetch(BACKEND_URL + '/api/line-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, message })
+      body: JSON.stringify({ userId, name: '', message })
     });
   } catch(e) {}
 }
@@ -2889,7 +2890,7 @@ function startCountdown() {
     if (remaining <= 0) {
       clearInterval(countdownInterval);
       countdownInterval = null;
-      // bar hides after notify fires
+      // setTimeout will fire shortly and handle bar hiding
     }
   }
   tick();
@@ -2959,11 +2960,6 @@ function scheduleAutoNotify(nextEntry) {
     autoTimer = null;
     autoTargetNum = null;
     if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-    const cdEl2 = document.getElementById('auto-countdown');
-    if (cdEl2) cdEl2.textContent = '00:00';
-    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-    const cdEl = document.getElementById('auto-countdown');
-    if (cdEl) cdEl.textContent = '00:00';
   }, AUTO_NOTIFY_MS);
 }
 
@@ -3368,7 +3364,7 @@ async function sendLineNotify(userId, message) {
     await fetch(BACKEND_URL + '/api/line-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, message })
+      body: JSON.stringify({ userId, name: '', message })
     });
   } catch(e) {}
 }
@@ -3394,7 +3390,7 @@ function startCountdown() {
     if (remaining <= 0) {
       clearInterval(countdownInterval);
       countdownInterval = null;
-      // bar hides after notify fires
+      // setTimeout will fire shortly and handle bar hiding
     }
   }
   tick();
@@ -3464,11 +3460,6 @@ function scheduleAutoNotify(nextEntry) {
     autoTimer = null;
     autoTargetNum = null;
     if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-    const cdEl2 = document.getElementById('auto-countdown');
-    if (cdEl2) cdEl2.textContent = '00:00';
-    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-    const cdEl = document.getElementById('auto-countdown');
-    if (cdEl) cdEl.textContent = '00:00';
   }, AUTO_NOTIFY_MS);
 }
 
