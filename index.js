@@ -584,6 +584,8 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -3128,7 +3130,7 @@ function render() {
       // 若 remaining <= 0 代表已超過時間，不再發送
     }
   }
-  if (confirmedAt && !serviceTimerInterval) {
+  if (confirmedAt && !serviceTimerInterval && (Date.now() - confirmedAt) < 30 * 60 * 1000) {
     serviceTimerStart = confirmedAt;
     const timerCard = document.getElementById('service-timer-card');
     const timerDisplay = document.getElementById('service-timer-display');
@@ -3138,6 +3140,12 @@ function render() {
       const mins2 = Math.floor(elapsed / 60);
       const secs2 = elapsed % 60;
       if (timerDisplay) timerDisplay.textContent = \`\${String(mins2).padStart(2,'0')}:\${String(secs2).padStart(2,'0')}\`;
+      // 超過 30 分鐘隱藏計時器
+      if (elapsed >= 30 * 60) {
+        stopServiceTimer();
+        return;
+      }
+      if (timerDisplay) timerDisplay.textContent = \`\${String(Math.floor(elapsed/60)).padStart(2,'0')}:\${String(elapsed%60).padStart(2,'0')}\`;
       if (elapsed >= 15 * 60) {
         if (timerDisplay) timerDisplay.style.color = '#dc2626';
         if (timerCard) { timerCard.style.borderColor = '#dc2626'; timerCard.style.background = '#fff5f5'; }
@@ -3627,7 +3635,7 @@ function render() {
       // 若 remaining <= 0 代表已超過時間，不再發送
     }
   }
-  if (confirmedAt && !serviceTimerInterval) {
+  if (confirmedAt && !serviceTimerInterval && (Date.now() - confirmedAt) < 30 * 60 * 1000) {
     serviceTimerStart = confirmedAt;
     const timerCard = document.getElementById('service-timer-card');
     const timerDisplay = document.getElementById('service-timer-display');
@@ -3637,6 +3645,12 @@ function render() {
       const mins2 = Math.floor(elapsed / 60);
       const secs2 = elapsed % 60;
       if (timerDisplay) timerDisplay.textContent = \`\${String(mins2).padStart(2,'0')}:\${String(secs2).padStart(2,'0')}\`;
+      // 超過 30 分鐘隱藏計時器
+      if (elapsed >= 30 * 60) {
+        stopServiceTimer();
+        return;
+      }
+      if (timerDisplay) timerDisplay.textContent = \`\${String(Math.floor(elapsed/60)).padStart(2,'0')}:\${String(elapsed%60).padStart(2,'0')}\`;
       if (elapsed >= 15 * 60) {
         if (timerDisplay) timerDisplay.style.color = '#dc2626';
         if (timerCard) { timerCard.style.borderColor = '#dc2626'; timerCard.style.background = '#fff5f5'; }
