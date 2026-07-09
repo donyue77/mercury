@@ -583,6 +583,7 @@ app.post('/api/line-notify', async (req, res) => {
 
 
 
+
 app.get('/queue', (req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(`<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -3081,6 +3082,12 @@ function render() {
   } else {
     noshowBar.style.display = 'none';
   }
+  // 恢復確認入席按鈕：叫號後尚未確認、號碼已不在候位才顯示
+  const confirmSeatBtn = document.getElementById('confirm-seat-btn');
+  if (confirmSeatBtn) {
+    const calledNotConfirmed = myCabinCurrent > 0 && !isConfirmedSeat && !q.find(e => e.num === myCabinCurrent);
+    confirmSeatBtn.style.display = calledNotConfirmed ? 'block' : 'none';
+  }
 
   // 若倒數目標號碼已被另一包廂叫走（不在候位），自動取消倒數
   if (autoTargetNum && !q.find(e => e.num === autoTargetNum)) {
@@ -3573,6 +3580,12 @@ function render() {
     noshowLabel.textContent = \`\${fmt(myLastNum)} 號叫號後未出現\`;
   } else {
     noshowBar.style.display = 'none';
+  }
+  // 恢復確認入席按鈕：叫號後尚未確認、號碼已不在候位才顯示
+  const confirmSeatBtn = document.getElementById('confirm-seat-btn');
+  if (confirmSeatBtn) {
+    const calledNotConfirmed = myCabinCurrent > 0 && !isConfirmedSeat && !q.find(e => e.num === myCabinCurrent);
+    confirmSeatBtn.style.display = calledNotConfirmed ? 'block' : 'none';
   }
 
   // 若倒數目標號碼已被另一包廂叫走（不在候位），自動取消倒數
